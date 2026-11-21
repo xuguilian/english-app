@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f6f5e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Coffee English">
+<title>Coffee Break English</title>
+<style>
+  :root{
+    --bg:#f6f3ee; --card:#fff; --ink:#1f2328; --muted:#6b6f76; --line:#e4dfd6;
+    --accent:#2f6f5e; --accent-soft:#e3efe9; --warm:#b4572e; --warm-soft:#f8e9e1;
+    --blue-soft:#e6eef8; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+  header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;padding-top:env(safe-area-inset-top)}
+  .wrap{max-width:860px;margin:0 auto;padding:0 16px}
+  .top{display:flex;align-items:center;gap:12px;padding:12px 0 6px}
+  .logo{font-size:22px}
+  h1{font-size:18px;margin:0;font-weight:700}
+  .sub{color:var(--muted);font-size:13px}
+  nav{display:flex;gap:4px;overflow-x:auto;padding-bottom:8px}
+  nav button{border:0;background:transparent;padding:8px 12px;border-radius:999px;font-size:14px;color:var(--muted);cursor:pointer;white-space:nowrap}
+  nav button.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  main{padding:18px 0 140px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+  h2{font-size:17px;margin:0 0 6px}
+  h3{font-size:14px;margin:12px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  p{margin:6px 0}
+  label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
+  input[type=text],input[type=password],select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:16px;background:#fff;color:var(--ink)}
+  textarea{resize:vertical;min-height:70px}
+  .btn{border:0;background:var(--accent);color:#fff;padding:10px 16px;border-radius:10px;font:inherit;font-weight:600;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+  .btn.small{padding:5px 10px;font-size:13px}
+  .btn.warm{background:var(--warm)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+  .scen{text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;padding:12px;cursor:pointer;font:inherit;color:inherit}
+  .scen:hover{border-color:var(--accent);background:#fbfdfc}
+  .scen b{display:block;font-size:15px}
+  .scen span{color:var(--muted);font-size:13px}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin-bottom:6px}
+  .tag.daily{background:var(--warm-soft);color:var(--warm)}
+  .tag.pro{background:var(--blue-soft);color:#2d5a8c}
+  .tag.deep{background:var(--accent-soft);color:var(--accent)}
+  .tag.drill{background:#f3e8fb;color:#6b3a8c}
+  .repeat{align-self:stretch;background:#f3e8fb;border:1px solid #e2cdf0;border-radius:12px;padding:12px 14px}
+  .repeat .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6b3a8c}
+  .repeat .target{font-size:17px;font-weight:600;margin:6px 0 10px;transition:filter .2s}
+  .repeat .target.blur{filter:blur(6px)}
+  .repeat .mic{width:52px;height:52px}
+  .w-ok{color:var(--accent)} .w-miss{color:#c0392b;text-decoration:underline}
+  .good{color:var(--accent);font-weight:700}
+  @media (max-width:560px){ .msg,.fb,.extras{max-width:94%} main{padding-top:12px} .card{padding:14px} }
+  .chat{display:flex;flex-direction:column;gap:10px}
+  .msg{max-width:85%;padding:10px 14px;border-radius:14px}
+  .msg.ai{background:#fff;border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:4px}
+  .msg.me{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+  .msg .who{font-size:12px;font-weight:700;opacity:.7;margin-bottom:2px}
+  .tools{display:flex;gap:6px;margin-top:6px}
+  .icon{border:1px solid var(--line);background:#fff;border-radius:8px;padding:3px 8px;font-size:12px;cursor:pointer;color:var(--ink)}
+  .fb{align-self:flex-end;max-width:85%;background:var(--warm-soft);border-radius:12px;padding:10px 14px;font-size:14px}
+  .fb.ok{background:var(--accent-soft)}
+  .fb .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--warm)}
+  .fb.ok .lbl{color:var(--accent)}
+  .extras{align-self:flex-start;max-width:85%;font-size:13px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+  .chip{background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:13px}
+  .chip b{color:var(--accent)}
+  .chip .save{margin-left:6px;border:0;background:var(--accent-soft);color:var(--accent);border-radius:6px;padding:1px 7px;cursor:pointer;font-size:12px;font-weight:700}
+  .chip .save.done{background:#eee;color:#888;cursor:default}
+  .chip .tr{color:var(--muted)}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 0 calc(10px + env(safe-area-inset-bottom));z-index:6}
+  .bar .wrap{display:flex;gap:8px;align-items:flex-end}
+  .bar textarea{min-height:46px;max-height:140px}
+  .mic{width:46px;height:46px;border-radius:50%;border:0;background:var(--warm);color:#fff;font-size:20px;cursor:pointer;flex:none}
+  .mic.on{animation:pulse 1.2s infinite;background:#c0392b}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(192,57,43,.5)}70%{box-shadow:0 0 0 12px rgba(192,57,43,0)}100%{box-shadow:0 0 0 0 rgba(192,57,43,0)}}
+  .hints .opt{background:var(--blue-soft);border-radius:10px;padding:8px 12px;margin:6px 0;cursor:pointer}
+  .hints .opt small{display:block;color:var(--muted)}
+  .err{background:#fdecea;color:#8a1f11;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px}
+  .muted{color:var(--muted);font-size:13px}
+  .loading{color:var(--muted);font-style:italic;font-size:14px}
+  .step{display:flex;gap:10px;margin:8px 0}
+  .step .n{flex:none;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:12px;border-radius:8px;padding:3px 8px;height:fit-content;min-width:92px;text-align:center}
+  .say{background:#fafaf7;border-left:3px solid var(--accent);padding:8px 12px;border-radius:6px;margin:6px 0}
+  .flash{min-height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer}
+  .flash .w{font-size:26px;font-weight:700}
+  .wordrow{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding:10px 0}
+  .wordrow:first-child{border-top:0}
+  .hidden{display:none!important}
+  a{color:var(--accent)}
+  ol.setup li{margin:6px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="logo">☕</div>
+      <div>
+        <h1>Coffee Break English</h1>
+        <div class="sub">Practice the talk that happens outside the lab</div>
+      </div>
+    </div>
+    <nav id="nav">
+      <button data-tab="talk" class="active">💬 Talk</button>
+      <button data-tab="organize">🧩 Say it better</button>
+      <button data-tab="decode">🔍 What did they mean?</button>
+      <button data-tab="words">📒 Word bank</button>
+      <button data-tab="settings">⚙️ Settings</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- TALK -->
+  <section id="tab-talk">
+    <div id="pick">
+      <div class="card">
+        <h2>Pick a conversation</h2>
+        <p class="muted">🎯 <b>Speaking drills</b>: Alex asks a question, you answer, Alex corrects you, and you say the better version again.<br>Your partner, Alex, is a friendly coworker. Speak with the 🎤 button or type. After each thing you say, you'll see a corrected version and how a native speaker would say it.</p>
+      </div>
+      <div class="grid" id="scenarios"></div>
+      <div class="card" style="margin-top:14px">
+        <label for="customTopic">Or choose your own topic</label>
+        <div class="row">
+          <input type="text" id="customTopic" placeholder="e.g. Is mathematics discovered or invented?" style="flex:1">
+          <button class="btn" id="customGo">Start</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="convo" class="hidden">
+      <div class="row" style="justify-content:space-between;margin-bottom:10px">
+        <div><b id="convoTitle"></b></div>
+        <div class="row">
+          <button class="btn ghost small" id="hintBtn">💡 What could I say?</button>
+          <button class="btn ghost small" id="endBtn">↩ New topic</button>
+        </div>
+      </div>
+      <div class="chat" id="chat"></div>
+      <div id="hints" class="hints"></div>
+    </div>
+  </section>
+
+  <!-- ORGANIZE -->
+  <section id="tab-organize" class="hidden">
+    <div class="card">
+      <h2>🧩 Say it better</h2>
+      <p class="muted">Type a rough idea: broken English, your own language, or a mix. You'll get it organized into clear spoken English, plus the words and linking phrases you need.</p>
+      <textarea id="orgIn" placeholder="e.g. I think free will maybe not exist because brain decide before we know, but still we feel responsible..."></textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="mic" id="orgMic" title="Speak">🎤</button>
+        <button class="btn" id="orgGo">Organize it</button>
+      </div>
+    </div>
+    <div id="orgOut"></div>
+  </section>
+
+  <!-- DECODE -->
+  <section id="tab-decode" class="hidden">
+    <div class="card">
+      <h2>🔍 What did they mean?</h2>
+      <p class="muted">Write down something a coworker said that you didn't get, even half of it. You'll get the meaning, the slang or cultural references, the tone, and good ways to reply.</p>
+      <textarea id="decIn" placeholder="e.g. &quot;Man, that meeting was a total dumpster fire, let's just circle back after we grab a bite.&quot;"></textarea>
+      <label for="decCtx">Context (optional)</label>
+      <input type="text" id="decCtx" placeholder="e.g. at lunch, they were laughing">
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="decGo">Explain it</button>
+      </div>
+    </div>
+    <div id="decOut"></div>
+  </section>
+
+  <!-- WORDS -->
+  <section id="tab-words" class="hidden">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2 id="wordCount">Word bank</h2>
+        <div class="row">
+          <button class="btn small" id="reviewBtn">Review cards</button>
+          <button class="btn ghost small" id="exportBtn">Export</button>
+          <label class="btn ghost small" style="margin:0;font-weight:600">Import<input type="file" id="importFile" accept=".json" class="hidden"></label>
+        </div>
+      </div>
+      <p class="muted">Words and phrases you save during practice show up here. Review a few every day; that's how they stick.</p>
+    </div>
+    <div class="card hidden" id="reviewCard">
+      <div class="flash" id="flash"></div>
+      <div class="row" style="justify-content:center;margin-top:10px">
+        <button class="btn ghost small" id="againBtn">Still learning</button>
+        <button class="btn small" id="gotBtn">I know it ✓</button>
+      </div>
+    </div>
+    <div class="card" id="wordList"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="tab-settings" class="hidden">
+    <div class="card" id="welcome">
+      <h2>👋 One-time setup (2 minutes)</h2>
+      <ol class="setup">
+        <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio → API keys</a> and sign in with a Google account.</li>
+        <li>Click <b>Create API key</b> and copy it. It's free, and no credit card is needed.</li>
+        <li>Paste it below and click <b>Save &amp; test</b>.</li>
+      </ol>
+      <p class="muted">Your key stays in this browser only. On Google's free tier, Google may use what you send to improve its products, so don't type private or sensitive information.</p>
+    </div>
+    <div class="card">
+      <label for="apiKey">Gemini API key</label>
+      <div class="row">
+        <input type="password" id="apiKey" placeholder="Paste your key here" style="flex:1">
+        <button class="btn" id="saveKey">Save &amp; test</button>
+      </div>
+      <div id="keyMsg"></div>
+
+      <label for="model">AI model</label>
+      <select id="model"><option value="gemini-2.5-flash">gemini-2.5-flash</option></select>
+      <p class="muted">Picked automatically after you test your key. A "flash" model is fast, and its free limits are generous.</p>
+
+      <label for="level">My English level</label>
+      <select id="level">
+        <option>Intermediate</option>
+        <option selected>Upper-intermediate</option>
+        <option>Advanced</option>
+      </select>
+
+      <label for="native">My native language (optional, for translations of new words)</label>
+      <input type="text" id="native" placeholder="e.g. Chinese, Spanish, Korean...">
+
+      <label for="voice">Alex's voice</label>
+      <select id="voice"></select>
+
+      <label for="rate">Speaking speed: <span id="rateVal">1.0</span></label>
+      <input type="range" id="rate" min="0.6" max="1.3" step="0.05" value="1" style="width:100%">
+
+      <label class="row" style="font-weight:400"><input type="checkbox" id="autoSpeak" checked> Read Alex's replies out loud automatically</label>
+      <label class="row" style="font-weight:400"><input type="checkbox" id="autoSend"> Send automatically when I stop speaking</label>
+      <label class="row" style="font-weight:400"><input type="checkbox" id="repeatMode" checked> After a correction, ask me to say the better version again</label>
+
+      <div class="row" style="margin-top:12px"><button class="btn" id="saveSettings">Save settings</button><span id="setMsg" class="muted"></span></div>
+    </div>
+    <div class="card">
+      <h2>Tips</h2>
+      <p class="muted">• Use <b>Chrome</b> or <b>Edge</b> on a computer, <b>Chrome</b> on Android, or <b>Safari</b> on iPhone.<br>
+      • On your phone, open the browser menu and tap <b>Add to Home Screen</b> so it opens like an app.<br>
+      • If the 🎤 is blocked, click the icon at the left of the address bar and allow the microphone.<br>
+      • If you hit a "free limit" message, wait a minute; the free tier limits requests per minute and per day.</p>
+    </div>
+  </section>
+</main>
+
+<div class="bar hidden" id="talkBar">
+  <div class="wrap">
+    <button class="mic" id="talkMic" title="Speak">🎤</button>
+    <textarea id="talkIn" placeholder="Speak or type your answer…"></textarea>
+    <button class="btn" id="sendBtn">Send</button>
+  </div>
+</div>
+
+<script>
+/* ---------- storage ---------- */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('cbe_'+k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem('cbe_'+k, JSON.stringify(v)); }catch(e){} }
+};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let S = Object.assign({apiKey:'', model:'gemini-2.5-flash', level:'Upper-intermediate', native:'', voice:'', rate:1, autoSpeak:true, autoSend:false, repeatMode:true}, store.get('settings', {}));
+let words = store.get('words', []);
+
+/* ---------- scenarios ---------- */
+const SCENARIOS = [
+  {id:'drill-daily', tag:'drill', t:'🎯 Q&A drill: everyday life', d:'Alex asks, you answer, then say the better version.', p:'Run a question-and-answer speaking drill. Ask the learner ONE clear question at a time about everyday life (food, weekends, hometown, hobbies, habits, small opinions). After each answer, react in one short natural sentence, then ask the next question. Vary the questions and sometimes ask a natural follow-up to get a longer answer.'},
+  {id:'drill-work', tag:'drill', t:'🎯 Q&A drill: work small talk', d:'Questions coworkers really ask you.', p:'Run a question-and-answer speaking drill with questions coworkers really ask each other outside the lab, like "How long have you been here?", "Any plans for the holidays?", "How is the project going?", "Did you catch the game?". Ask ONE question at a time, react briefly to each answer, then ask the next.'},
+  {id:'drill-deep', tag:'drill', t:'🎯 Q&A drill: deep questions', d:'Philosophy-style questions; give a reason and an example.', p:'Run a question-and-answer speaking drill with thought-provoking questions (e.g. Is it ever okay to lie? Would you want to live forever? What makes you the same person over time? Can science answer every question?). Ask ONE question at a time. After each answer, briefly react, encourage the learner to give a reason and an example, introduce one useful term if it fits, then ask the next question.'},
+  {id:'coffee', tag:'daily', t:'☕ Coffee machine chat', d:'How\'s your week going? Being tired, Mondays, coffee.', p:'Casual chat at the office coffee machine. Talk about everyday things: how the week is going, being tired or busy, coffee, small complaints, plans for later. Use very typical small-talk expressions.'},
+  {id:'lunch', tag:'daily', t:'🥪 Lunch with coworkers', d:'Food, restaurants, TV shows, funny stories.', p:'Lunch in the break room with coworkers. Talk about food, restaurants, TV shows, funny stories and everyday life, with typical lunch-table banter and jokes. Occasionally mention a common cultural reference and briefly explain it if the learner seems lost.'},
+  {id:'weekend', tag:'daily', t:'🏖️ "How was your weekend?"', d:'Monday small talk: plans, hobbies, family, trips.', p:'Monday morning at work. Ask about the learner\'s weekend, share yours, talk about hobbies, family, trips and plans. Teach the learner how to give more than one-word answers and ask follow-up questions.'},
+  {id:'news', tag:'daily', t:'📺 Sports, news & pop culture', d:'What coworkers chat about: games, movies, trends.', p:'Casual chat about things American coworkers often talk about: sports (football, basketball, baseball), movies and streaming shows, viral trends, holidays, and light news. Keep it friendly, avoid heated politics, and explain references briefly.'},
+  {id:'meeting', tag:'pro', t:'🧪 Lab meeting talk', d:'Share results, agree/disagree politely, ask questions.', p:'A lab group meeting. The learner presents progress, and you act as a colleague who asks questions, pushes back politely and suggests ideas. Focus on professional phrases for presenting, hedging, agreeing and disagreeing politely, and asking for clarification.'},
+  {id:'chat-boss', tag:'pro', t:'🤝 Chatting with your PI / boss', d:'Ask for help, give updates, handle feedback.', p:'A one-on-one talk with the learner\'s PI or manager. Practice giving a quick update, asking for help or resources, responding to feedback, and light small talk at the start and end.'},
+  {id:'freewill', tag:'deep', t:'🤔 Philosophy: Do we have free will?', d:'Determinism, choice, responsibility.', p:'A thoughtful coworker who loves philosophy chats over coffee about free will. Bring in key ideas and terms (determinism, compatibilism, moral responsibility, the Libet experiments) one at a time, in plain words. Ask for the learner\'s opinion and help them build an argument.'},
+  {id:'goodlife', tag:'deep', t:'🌱 Philosophy: What is a good life?', d:'Happiness, meaning, Stoicism, ethics.', p:'A relaxed philosophical conversation about what makes a good life: happiness vs. meaning, Stoicism, Aristotle\'s idea of flourishing (eudaimonia), work-life balance. Introduce key terms naturally and invite the learner\'s personal views.'},
+  {id:'sciethics', tag:'deep', t:'🧬 Science & ethics', d:'AI, gene editing, the ethics of research.', p:'A deep but friendly conversation about ethics in science and technology: AI, gene editing, animal research, who science should serve. Introduce useful vocabulary for debating (trade-off, slippery slope, the greater good) and help the learner express nuanced opinions.'},
+  {id:'mind', tag:'deep', t:'🧠 Mind & consciousness', d:'Can machines think? What is the self?', p:'A curious conversation about the philosophy of mind: consciousness, the self, whether AI can really think, the mind-body problem. Introduce key terms gently and encourage the learner to explain their own view.'}
+];
+const TAGNAME = {daily:'Everyday', pro:'Professional', deep:'Deep talk', drill:'Speaking drill'};
+
+/* ---------- prompts ---------- */
+function vocabSpec(){
+  return S.native ? `{"word": string, "meaning": string (simple English), "example": string, "translation": string (meaning in ${S.native})}` : `{"word": string, "meaning": string (simple English), "example": string}`;
+}
+function talkSystem(scen){
+  return `You are "Alex", a friendly American coworker and English conversation partner for a non-native speaker who works in a science lab. They are fine with technical lab English but struggle to follow casual everyday talk between coworkers (idioms, slang, phrasal verbs, cultural references), and they want to discuss abstract topics such as philosophy but lack the vocabulary and don't know how to organize their thoughts.
+Learner level: ${S.level}.
+Scenario: ${scen}
+
+How to talk:
+- Sound like a real coworker: natural, relaxed, contractions, and the idioms and phrasal verbs native speakers really use, pitched just a little above the learner's level.
+- Keep each reply SHORT (1-3 sentences, under about 50 words), and usually end with a question or a hook so the learner keeps talking.
+- If the learner seems lost or asks what something means, explain simply, then carry on.
+- For deep topics, introduce one key idea or term at a time.
+
+Respond ONLY with JSON in this shape:
+{"feedback": null OR {"corrected": string (the learner's message with grammar and word choice fixed; identical if already correct), "natural": string (how a native speaker would casually say it in this situation), "explanation": string (one or two short sentences on the most useful fix, or brief praise), "perfect": boolean},
+ "reply": string (what Alex says),
+ "phrases": [{"phrase": string, "meaning": string}] (0-3 idioms, slang or phrasal verbs that YOU used in your reply),
+ "vocab": [${vocabSpec()}] (1-3 useful words or expressions for this topic that the learner could use in their next answer)}
+When the learner's message is exactly "[START]", set feedback to null and open the conversation naturally as Alex.`;
+}
+const HINT_SYSTEM = () => `You help a non-native English speaker (level ${S.level}) who is stuck in a conversation. Given the conversation so far, suggest 3 things they could say next: one simple, one medium, one more advanced and natural. Respond ONLY with JSON: {"options":[{"say": string, "why": string (very short: what this does, e.g. "shares an opinion and asks back")}]}`;
+const ORG_SYSTEM = () => `You help a non-native English speaker (level ${S.level}) turn rough ideas into clear, well-organized SPOKEN English, for casual or thoughtful conversations with coworkers. Their input may be broken English, ${S.native || 'their native language'}, or a mix. Respond ONLY with JSON:
+{"understood": string (one line: what they mean, in plain English),
+ "structure": [{"step": string (e.g. "Main point", "Reason", "Example", "Wrap up / ask back"), "sentence": string}] (3-4 steps, natural spoken sentences),
+ "simple": string (a short, simple spoken version, 2-3 sentences),
+ "advanced": string (a richer version with more sophisticated vocabulary, still natural to say out loud),
+ "connectors": [string] (4-6 linking phrases that help organize this kind of idea, e.g. "The way I see it, ..."),
+ "vocab": [${vocabSpec()}] (3-5 key words for this topic)}`;
+const DEC_SYSTEM = () => `A non-native English speaker (level ${S.level}) who works in a science lab heard a coworker say something and didn't understand it. Explain it like a friendly native-speaking friend would. The quote may be incomplete or misheard; make your best guess and say so. Respond ONLY with JSON:
+{"meaning": string (what they meant, in plain simple English),
+ "breakdown": [{"phrase": string, "meaning": string}] (idioms, slang, phrasal verbs, cultural references),
+ "tone": string (e.g. joking, sarcastic, friendly complaint),
+ "replies": [string] (3 natural ways to respond),
+ "vocab": [${vocabSpec()}] (1-3 of the most useful expressions to save)}`;
+
+/* ---------- Gemini ---------- */
+const API = 'https://generativelanguage.googleapis.com/v1beta';
+async function gemini(system, contents){
+  if(!S.apiKey) throw new Error('Add your free Gemini API key in ⚙️ Settings first.');
+  const model = (S.model || 'gemini-2.5-flash').replace(/^models\//,'');
+  let res;
+  try{
+    res = await fetch(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-goog-api-key':S.apiKey},
+      body: JSON.stringify({
+        systemInstruction:{parts:[{text:system}]},
+        contents,
+        generationConfig:{responseMimeType:'application/json', temperature:0.8}
+      })
+    });
+  }catch(e){ throw new Error('Could not reach Google. Check your internet connection.'); }
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok){
+    const msg = data.error?.message || res.statusText;
+    if(res.status === 429) throw new Error('You\'ve hit the free limit for now. Wait a minute and try again. (' + msg + ')');
+    if(res.status === 400 && /API key/i.test(msg)) throw new Error('Your API key doesn\'t work. Check it in ⚙️ Settings.');
+    if(res.status === 404) throw new Error('That AI model isn\'t available. Go to ⚙️ Settings and click "Save & test" to pick a working one.');
+    throw new Error(msg);
+  }
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const text = parts.filter(p => !p.thought).map(p => p.text || '').join('');
+  if(!text) throw new Error('The AI returned an empty answer. Please try again.');
+  return parseJSON(text);
+}
+function parseJSON(t){
+  try{ return JSON.parse(t); }catch(e){
+    const m = t.match(/\{[\s\S]*\}/);
+    if(m){ try{ return JSON.parse(m[0]); }catch(e2){} }
+    throw new Error('Could not read the AI\'s answer. Please try again.');
+  }
+}
+async function loadModels(){
+  const res = await fetch(`${API}/models?pageSize=200`, {headers:{'x-goog-api-key':S.apiKey}});
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error?.message || 'Key test failed');
+  const list = (data.models || [])
+    .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map(m => m.name.replace(/^models\//,''))
+    .filter(n => /^gemini/.test(n) && !/(image|tts|audio|live|embed|vision|robotics|computer|thinking-exp|learnlm)/i.test(n));
+  const score = n => {
+    let s = parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0,0])[1]) * 10;
+    if(/flash/.test(n)) s += 100;
+    if(/lite/.test(n)) s -= 40;
+    if(/preview|exp/.test(n)) s -= 15;
+    if(/latest/.test(n)) s -= 5;
+    if(/-\d{3}$/.test(n)) s -= 2;
+    return s;
+  };
+  list.sort((a,b) => score(b) - score(a));
+  return list;
+}
+
+/* ---------- speech ---------- */
+let voices = [];
+function loadVoices(){
+  if(!('speechSynthesis' in window)) return;
+  voices = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
+  const sel = $('#voice');
+  sel.innerHTML = voices.map(v => `<option value="${esc(v.name)}">${esc(v.name)} (${esc(v.lang)})</option>`).join('') || '<option value="">Default voice</option>';
+  if(!S.voice){
+    const pref = voices.find(v => /Google US English/i.test(v.name)) || voices.find(v => /en-US/i.test(v.lang) && /natural|online/i.test(v.name)) || voices.find(v => /en-US/i.test(v.lang)) || voices[0];
+    if(pref) S.voice = pref.name;
+  }
+  sel.value = S.voice;
+}
+function speak(text, rate){
+  if(!('speechSynthesis' in window) || !text) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  const v = voices.find(v => v.name === S.voice);
+  if(v){ u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
+  u.rate = rate || S.rate;
+  speechSynthesis.speak(u);
+}
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+let ttsUnlocked = false;
+document.addEventListener('click', () => {
+  if(ttsUnlocked || !('speechSynthesis' in window)) return;
+  ttsUnlocked = true;
+  try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
+}, {capture:true});
+let rec = null, recBtn = null;
+function toggleMic(btn, ta, onDone){
+  if(!SR){ showErr('Voice input isn\'t supported in this browser. Please open this file in Google Chrome or Microsoft Edge, or just type.'); return; }
+  if(rec){ rec.stop(); return; }
+  speechSynthesis && speechSynthesis.cancel();
+  const base = ta.value ? ta.value.trim() + ' ' : '';
+  let finalText = '';
+  rec = new SR();
+  rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = !IS_MOBILE;
+  recBtn = btn; btn.classList.add('on'); btn.textContent = '■';
+  rec.onresult = e => {
+    let interim = '';
+    for(let i = e.resultIndex; i < e.results.length; i++){
+      const r = e.results[i];
+      if(r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript;
+    }
+    ta.value = base + finalText + interim;
+  };
+  rec.onerror = e => {
+    if(e.error === 'not-allowed' || e.error === 'service-not-allowed') showErr('The microphone is blocked. Click the icon at the left of the address bar, allow the microphone, and try again.');
+    else if(e.error === 'no-speech') showErr('I didn\'t hear anything. Try again, a little closer to the mic.');
+    else if(e.error === 'network') showErr('Voice input needs an internet connection.');
+  };
+  rec.onend = () => {
+    btn.classList.remove('on'); btn.textContent = '🎤'; rec = null;
+    if(onDone && finalText.trim()) onDone();
+  };
+  try{ rec.start(); }catch(e){ rec = null; btn.classList.remove('on'); btn.textContent = '🎤'; }
+}
+
+/* ---------- errors ---------- */
+function showErr(msg, where){
+  const box = document.createElement('div');
+  box.className = 'err'; box.textContent = msg;
+  const target = where || document.querySelector('main section:not(.hidden)');
+  target.appendChild(box);
+  box.scrollIntoView({behavior:'smooth', block:'center'});
+  setTimeout(() => box.remove(), 9000);
+}
+
+/* ---------- vocab chips ---------- */
+function hasWord(w){ return words.some(x => x.word.toLowerCase() === String(w).toLowerCase()); }
+function vocabChips(list){
+  if(!list || !list.length) return '';
+  return '<div class="chips">' + list.map(v => {
+    const data = esc(JSON.stringify(v));
+    const saved = hasWord(v.word || v.phrase);
+    return `<div class="chip"><b>${esc(v.word || v.phrase)}</b>: ${esc(v.meaning)}${v.translation ? ` <span class="tr">(${esc(v.translation)})</span>` : ''}${v.example ? `<br><i class="muted">"${esc(v.example)}"</i>` : ''}<button class="save${saved?' done':''}" data-v="${data}">${saved?'saved':'+ save'}</button></div>`;
+  }).join('') + '</div>';
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('.save');
+  if(!b || b.classList.contains('done')) return;
+  try{
+    const v = JSON.parse(b.dataset.v);
+    const w = v.word || v.phrase;
+    if(!hasWord(w)){
+      words.unshift({word:w, meaning:v.meaning || '', example:v.example || '', translation:v.translation || '', added:new Date().toISOString().slice(0,10), known:0});
+      store.set('words', words);
+    }
+    b.classList.add('done'); b.textContent = 'saved';
+  }catch(err){}
+});
+
+/* ---------- tabs ---------- */
+function showTab(name){
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('main section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-' + name));
+  $('#talkBar').classList.toggle('hidden', !(name === 'talk' && convo));
+  if(name === 'words') renderWords();
+  window.scrollTo(0,0);
+}
+$('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if(b) showTab(b.dataset.tab); });
+
+/* ---------- TALK ---------- */
+let convo = null; // {title, system, history:[{role,parts}]}
+function renderScenarios(){
+  $('#scenarios').innerHTML = SCENARIOS.map(s => `<button class="scen" data-id="${s.id}"><span class="tag ${s.tag}">${TAGNAME[s.tag]}</span><b>${esc(s.t)}</b><span>${esc(s.d)}</span></button>`).join('');
+}
+$('#scenarios').addEventListener('click', e => {
+  const b = e.target.closest('.scen'); if(!b) return;
+  const s = SCENARIOS.find(x => x.id === b.dataset.id);
+  startConvo(s.t, s.p);
+});
+$('#customGo').addEventListener('click', () => {
+  const t = $('#customTopic').value.trim(); if(!t) return;
+  startConvo('✏️ ' + t, `A friendly, curious conversation with a coworker about: "${t}". Introduce useful vocabulary for this topic naturally and help the learner express and organize their opinions.`);
+});
+function startConvo(title, prompt){
+  if(!S.apiKey){ showTab('settings'); showErr('First, add your free Gemini API key here.'); return; }
+  convo = {title, system: talkSystem(prompt), history: []};
+  $('#convoTitle').textContent = title;
+  $('#chat').innerHTML = ''; $('#hints').innerHTML = '';
+  $('#pick').classList.add('hidden'); $('#convo').classList.remove('hidden');
+  $('#talkBar').classList.remove('hidden');
+  sendTurn('[START]');
+}
+$('#endBtn').addEventListener('click', () => {
+  convo = null; if(rec) rec.stop(); speechSynthesis && speechSynthesis.cancel();
+  $('#convo').classList.add('hidden'); $('#pick').classList.remove('hidden'); $('#talkBar').classList.add('hidden');
+});
+function addEl(html, cls){
+  const d = document.createElement('div'); d.className = cls; d.innerHTML = html;
+  $('#chat').appendChild(d);
+  d.scrollIntoView({behavior:'smooth', block:'end'});
+  return d;
+}
+let busy = false;
+async function sendTurn(text){
+  if(busy || !convo) return;
+  busy = true; $('#sendBtn').disabled = true; $('#hints').innerHTML = '';
+  let meEl = null;
+  if(text !== '[START]') meEl = addEl(`<div class="who">You</div>${esc(text)}`, 'msg me');
+  const loading = addEl('Alex is typing…', 'loading');
+  convo.history.push({role:'user', parts:[{text}]});
+  const thisConvo = convo;
+  try{
+    const r = await gemini(convo.system, convo.history);
+    if(thisConvo !== convo) return;
+    convo.history.push({role:'model', parts:[{text: JSON.stringify(r)}]});
+    loading.remove();
+    const f = r.feedback;
+    if(f && meEl){
+      if(f.perfect) addEl(`<div class="lbl">✓ Sounds good</div>${f.natural && f.natural !== text ? `Native style: <b>${esc(f.natural)}</b><br>` : ''}<span class="muted">${esc(f.explanation)}</span>`, 'fb ok');
+      else addEl(`<div class="lbl">Better</div><b>${esc(f.corrected)}</b><div class="lbl" style="margin-top:6px">How a native speaker might say it</div><b>${esc(f.natural)}</b> <button class="icon" data-say="${esc(f.natural)}">🔊</button><br><span class="muted">${esc(f.explanation)}</span>`, 'fb');
+    }
+    const showReply = () => {
+      if(thisConvo !== convo) return;
+      addEl(`<div class="who">Alex</div>${esc(r.reply)}<div class="tools"><button class="icon" data-say="${esc(r.reply)}">🔊 Replay</button><button class="icon" data-say="${esc(r.reply)}" data-slow="1">🐢 Slow</button></div>`, 'msg ai');
+      let ex = '';
+      if(r.phrases && r.phrases.length) ex += `<div class="muted" style="margin-top:2px">Expressions Alex used</div>` + vocabChips(r.phrases);
+      if(r.vocab && r.vocab.length) ex += `<div class="muted" style="margin-top:6px">Words you could use next</div>` + vocabChips(r.vocab);
+      if(ex) addEl(ex, 'extras');
+      if(S.autoSpeak) speak(r.reply);
+    };
+    if(f && meEl && !f.perfect && S.repeatMode && f.natural) repeatPanel(f.natural, showReply);
+    else showReply();
+  }catch(e){
+    loading.remove();
+    convo.history.pop();
+    showErr(e.message, $('#chat'));
+    if(text !== '[START]') $('#talkIn').value = text;
+  }finally{
+    busy = false; $('#sendBtn').disabled = false;
+  }
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-say]'); if(!b) return;
+  speak(b.dataset.say, b.dataset.slow ? 0.7 : null);
+});
+function sendFromBox(){
+  const t = $('#talkIn').value.trim(); if(!t) return;
+  if(repeating){ showErr('First say the better version again (🎤 in the purple box), or tap "Skip".', $('#chat')); return; }
+  $('#talkIn').value = ''; sendTurn(t);
+}
+$('#sendBtn').addEventListener('click', sendFromBox);
+$('#talkIn').addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendFromBox(); } });
+$('#talkMic').addEventListener('click', () => toggleMic($('#talkMic'), $('#talkIn'), S.autoSend ? sendFromBox : null));
+
+$('#hintBtn').addEventListener('click', async () => {
+  if(!convo) return;
+  const transcript = convo.history.filter(h => h.parts[0].text !== '[START]').map(h => {
+    if(h.role === 'user') return 'Learner: ' + h.parts[0].text;
+    try{ return 'Alex: ' + JSON.parse(h.parts[0].text).reply; }catch(e){ return ''; }
+  }).join('\n');
+  $('#hints').innerHTML = '<p class="loading">Thinking of ideas…</p>';
+  try{
+    const r = await gemini(HINT_SYSTEM(), [{role:'user', parts:[{text:'Conversation so far:\n' + transcript + '\n\nWhat could the learner say next?'}]}]);
+    $('#hints').innerHTML = '<h3>Tap one to use it</h3>' + (r.options || []).map(o => `<div class="opt" data-use="${esc(o.say)}">${esc(o.say)}<small>${esc(o.why)}</small></div>`).join('');
+    $('#hints').scrollIntoView({behavior:'smooth', block:'end'});
+  }catch(e){ $('#hints').innerHTML = ''; showErr(e.message, $('#chat')); }
+});
+$('#hints').addEventListener('click', e => {
+  const o = e.target.closest('.opt'); if(!o) return;
+  $('#talkIn').value = o.dataset.use; $('#talkIn').focus(); $('#hints').innerHTML = '';
+});
+
+/* ---------- REPEAT ("say it again") ---------- */
+let repeating = false;
+function norm(s){ return String(s).toLowerCase().replace(/[\u2019]/g, "'").replace(/[^a-z0-9' ]+/g, ' ').split(/\s+/).filter(Boolean); }
+function compareSpeech(target, said){
+  const t = norm(target), s = norm(said), n = t.length, m = s.length;
+  const dp = Array.from({length:n+1}, () => new Array(m+1).fill(0));
+  for(let i = n-1; i >= 0; i--) for(let j = m-1; j >= 0; j--)
+    dp[i][j] = t[i] === s[j] ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
+  const hit = new Array(n).fill(false);
+  let i = 0, j = 0;
+  while(i < n && j < m){
+    if(t[i] === s[j]){ hit[i] = true; i++; j++; }
+    else if(dp[i+1][j] >= dp[i][j+1]) i++; else j++;
+  }
+  let k = 0;
+  const html = target.split(/\s+/).map(w => {
+    const nw = norm(w); if(!nw.length) return esc(w);
+    let ok = true; nw.forEach(() => { if(!hit[k++]) ok = false; });
+    return `<span class="${ok ? 'w-ok' : 'w-miss'}">${esc(w)}</span>`;
+  }).join(' ');
+  return {pct: n ? dp[0][0] / n : 0, html};
+}
+function repeatPanel(target, done){
+  repeating = true;
+  const el = addEl(`<div class="lbl">🔁 Your turn: say the better version</div>
+    <div class="target">${esc(target)}</div>
+    <div class="row"><button class="mic rmic" title="Speak">🎤</button>
+      <button class="icon r-listen">🔊 Listen</button><button class="icon r-slow">🐢 Slow</button>
+      <button class="icon r-hide">🙈 Hide text</button><button class="icon r-skip">Skip →</button></div>
+    <div class="rres"></div>`, 'repeat');
+  const tgt = el.querySelector('.target'), res = el.querySelector('.rres'), mic = el.querySelector('.rmic');
+  const holder = {value:''};
+  let tries = 0, finished = false;
+  const finish = () => {
+    if(finished) return; finished = true; repeating = false;
+    el.querySelectorAll('button').forEach(b => b.disabled = true);
+    tgt.classList.remove('blur');
+    done();
+  };
+  el.querySelector('.r-listen').onclick = () => speak(target);
+  el.querySelector('.r-slow').onclick = () => speak(target, 0.7);
+  el.querySelector('.r-hide').onclick = () => tgt.classList.toggle('blur');
+  el.querySelector('.r-skip').onclick = finish;
+  mic.onclick = () => {
+    if(finished) return;
+    holder.value = '';
+    toggleMic(mic, holder, () => {
+      tries++;
+      const sc = compareSpeech(target, holder.value), pct = Math.round(sc.pct * 100);
+      if(sc.pct >= 0.8){
+        res.innerHTML = `<p>${sc.html}</p><p class="good">✓ ${pct}%. Great, that's it!</p>`;
+        setTimeout(finish, 1300);
+      }else{
+        res.innerHTML = `<p>${sc.html}</p><p class="muted">You said: <i>${esc(holder.value)}</i></p><p class="muted">${pct}% match. The <span class="w-miss">red words</span> were missing. Listen once more and try again.${tries >= 3 ? ' Or tap Skip to move on; good effort!' : ''}</p>`;
+      }
+    });
+  };
+  if(S.autoSpeak) speak(target);
+}
+
+/* ---------- ORGANIZE ---------- */
+$('#orgMic').addEventListener('click', () => toggleMic($('#orgMic'), $('#orgIn')));
+$('#orgGo').addEventListener('click', async () => {
+  const t = $('#orgIn').value.trim(); if(!t) return;
+  const out = $('#orgOut'); out.innerHTML = '<p class="loading">Organizing your idea…</p>';
+  $('#orgGo').disabled = true;
+  try{
+    const r = await gemini(ORG_SYSTEM(), [{role:'user', parts:[{text:t}]}]);
+    out.innerHTML = `
+      <div class="card"><h3>What you mean</h3><p>${esc(r.understood)}</p></div>
+      <div class="card"><h3>Organized, step by step</h3>
+        ${(r.structure || []).map(s => `<div class="step"><div class="n">${esc(s.step)}</div><div>${esc(s.sentence)} <button class="icon" data-say="${esc(s.sentence)}">🔊</button></div></div>`).join('')}
+      </div>
+      <div class="card"><h3>Simple version</h3><div class="say">${esc(r.simple)} <button class="icon" data-say="${esc(r.simple)}">🔊</button></div>
+        <h3>Advanced version</h3><div class="say">${esc(r.advanced)} <button class="icon" data-say="${esc(r.advanced)}">🔊</button></div></div>
+      <div class="card"><h3>Phrases for organizing ideas</h3><div class="chips">${(r.connectors || []).map(c => `<div class="chip">${esc(c)}</div>`).join('')}</div>
+        <h3>Key words</h3>${vocabChips(r.vocab)}</div>`;
+  }catch(e){ out.innerHTML = ''; showErr(e.message); }
+  finally{ $('#orgGo').disabled = false; }
+});
+
+/* ---------- DECODE ---------- */
+$('#decGo').addEventListener('click', async () => {
+  const t = $('#decIn').value.trim(); if(!t) return;
+  const ctx = $('#decCtx').value.trim();
+  const out = $('#decOut'); out.innerHTML = '<p class="loading">Figuring it out…</p>';
+  $('#decGo').disabled = true;
+  try{
+    const r = await gemini(DEC_SYSTEM(), [{role:'user', parts:[{text:`What my coworker said: "${t}"` + (ctx ? `\nContext: ${ctx}` : '')}]}]);
+    out.innerHTML = `
+      <div class="card"><h3>What they meant</h3><p>${esc(r.meaning)}</p><p class="muted">Tone: ${esc(r.tone)}</p></div>
+      <div class="card"><h3>Breaking it down</h3>${vocabChips(r.breakdown)}</div>
+      <div class="card"><h3>How you could reply</h3>${(r.replies || []).map(x => `<div class="say">${esc(x)} <button class="icon" data-say="${esc(x)}">🔊</button></div>`).join('')}
+        ${r.vocab && r.vocab.length ? '<h3>Worth saving</h3>' + vocabChips(r.vocab) : ''}</div>`;
+  }catch(e){ out.innerHTML = ''; showErr(e.message); }
+  finally{ $('#decGo').disabled = false; }
+});
+
+/* ---------- WORD BANK ---------- */
+function renderWords(){
+  $('#wordCount').textContent = `📒 Word bank (${words.length})`;
+  const list = $('#wordList');
+  if(!words.length){ list.innerHTML = '<p class="muted">No words yet. Tap "+ save" on any word or phrase during practice.</p>'; return; }
+  list.innerHTML = words.map((w,i) => `<div class="wordrow"><div><b>${esc(w.word)}</b> <button class="icon" data-say="${esc(w.word)}">🔊</button>${w.known >= 3 ? ' <span class="tag deep">learned</span>' : ''}<br>${esc(w.meaning)}${w.translation ? ` <span class="muted">(${esc(w.translation)})</span>` : ''}${w.example ? `<br><i class="muted">"${esc(w.example)}"</i>` : ''}</div><button class="icon" data-del="${i}" title="Delete">✕</button></div>`).join('');
+}
+$('#wordList').addEventListener('click', e => {
+  const b = e.target.closest('[data-del]'); if(!b) return;
+  words.splice(+b.dataset.del, 1); store.set('words', words); renderWords();
+});
+let queue = [], cur = null, revealed = false;
+function nextCard(){
+  if(!queue.length){ $('#flash').innerHTML = '<div class="w">🎉 Done!</div><p class="muted">Come back tomorrow for more.</p>'; cur = null; return; }
+  cur = queue.shift(); revealed = false;
+  $('#flash').innerHTML = `<div class="w">${esc(cur.word)}</div><p class="muted">Do you remember what it means? Tap to check.</p>`;
+}
+$('#reviewBtn').addEventListener('click', () => {
+  if(!words.length) return;
+  queue = [...words].sort((a,b) => (a.known||0) - (b.known||0) || Math.random() - .5).slice(0, 10);
+  $('#reviewCard').classList.remove('hidden'); nextCard();
+});
+$('#flash').addEventListener('click', () => {
+  if(!cur || revealed) return; revealed = true;
+  $('#flash').innerHTML = `<div class="w">${esc(cur.word)}</div><p>${esc(cur.meaning)}${cur.translation ? ` <span class="muted">(${esc(cur.translation)})</span>` : ''}</p>${cur.example ? `<p class="muted"><i>"${esc(cur.example)}"</i></p>` : ''}`;
+  speak(cur.example || cur.word);
+});
+$('#gotBtn').addEventListener('click', () => { if(!cur) return; cur.known = (cur.known||0) + 1; store.set('words', words); renderWords(); nextCard(); });
+$('#againBtn').addEventListener('click', () => { if(!cur) return; cur.known = 0; queue.push(cur); store.set('words', words); renderWords(); nextCard(); });
+$('#exportBtn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(words, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'my-english-words.json'; a.click();
+});
+$('#importFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const arr = JSON.parse(await f.text());
+    arr.forEach(w => { if(w && w.word && !hasWord(w.word)) words.push(w); });
+    store.set('words', words); renderWords();
+  }catch(err){ showErr('That file could not be imported.'); }
+  e.target.value = '';
+});
+
+/* ---------- SETTINGS ---------- */
+function fillSettings(){
+  $('#apiKey').value = S.apiKey; $('#level').value = S.level; $('#native').value = S.native;
+  $('#rate').value = S.rate; $('#rateVal').textContent = Number(S.rate).toFixed(2);
+  $('#autoSpeak').checked = S.autoSpeak; $('#autoSend').checked = S.autoSend; $('#repeatMode').checked = S.repeatMode;
+  const m = $('#model');
+  if(![...m.options].some(o => o.value === S.model)) m.insertAdjacentHTML('afterbegin', `<option value="${esc(S.model)}">${esc(S.model)}</option>`);
+  m.value = S.model;
+  $('#welcome').classList.toggle('hidden', !!S.apiKey);
+}
+function readSettings(){
+  S.level = $('#level').value; S.native = $('#native').value.trim();
+  S.voice = $('#voice').value; S.rate = parseFloat($('#rate').value);
+  S.autoSpeak = $('#autoSpeak').checked; S.autoSend = $('#autoSend').checked; S.repeatMode = $('#repeatMode').checked;
+  S.model = $('#model').value || S.model;
+  store.set('settings', S);
+}
+$('#rate').addEventListener('input', () => $('#rateVal').textContent = Number($('#rate').value).toFixed(2));
+$('#saveSettings').addEventListener('click', () => { readSettings(); $('#setMsg').textContent = 'Saved ✓'; speak('Hi! This is how I sound.'); setTimeout(() => $('#setMsg').textContent = '', 2500); });
+$('#saveKey').addEventListener('click', async () => {
+  S.apiKey = $('#apiKey').value.trim();
+  const msg = $('#keyMsg');
+  if(!S.apiKey){ msg.innerHTML = '<div class="err">Please paste your key first.</div>'; return; }
+  msg.innerHTML = '<p class="loading">Testing your key…</p>';
+  try{
+    const list = await loadModels();
+    if(!list.length) throw new Error('No usable models were found for this key.');
+    const m = $('#model');
+    m.innerHTML = list.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    S.model = list.includes(S.model) && S.model !== 'gemini-2.5-flash' ? S.model : list[0];
+    m.value = S.model;
+    readSettings();
+    msg.innerHTML = `<p style="color:var(--accent);font-weight:600">✓ Your key works! Using ${esc(S.model)}. Go to 💬 Talk to start.</p>`;
+    $('#welcome').classList.add('hidden');
+  }catch(e){
+    store.set('settings', S);
+    msg.innerHTML = `<div class="err">That key didn't work: ${esc(e.message)}</div>`;
+  }
+});
+
+/* ---------- init ---------- */
+renderScenarios();
+fillSettings();
+loadVoices();
+if('speechSynthesis' in window) speechSynthesis.onvoiceschanged = loadVoices;
+if(!S.apiKey) showTab('settings');
+</script>
+</body>
+</html>
