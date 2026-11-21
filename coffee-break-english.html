@@ -39,6 +39,7 @@
   .btn.small{padding:5px 10px;font-size:13px}
   .btn.warm{background:var(--warm)}
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  label.row{flex-wrap:nowrap;align-items:flex-start} label.row input[type=checkbox]{flex:none;margin-top:4px;width:18px;height:18px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
   .scen{text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;padding:12px;cursor:pointer;font:inherit;color:inherit}
   .scen:hover{border-color:var(--accent);background:#fbfdfc}
@@ -83,6 +84,7 @@
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(192,57,43,.5)}70%{box-shadow:0 0 0 12px rgba(192,57,43,0)}100%{box-shadow:0 0 0 0 rgba(192,57,43,0)}}
   .hints .opt{background:var(--blue-soft);border-radius:10px;padding:8px 12px;margin:6px 0;cursor:pointer}
   .hints .opt small{display:block;color:var(--muted)}
+  .note{background:var(--accent-soft);color:var(--accent);border-radius:10px;padding:8px 12px;margin:8px 0;font-size:13px}
   .err{background:#fdecea;color:#8a1f11;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px}
   .muted{color:var(--muted);font-size:13px}
   .loading{color:var(--muted);font-style:italic;font-size:14px}
@@ -248,6 +250,27 @@
       <div class="row" style="margin-top:12px"><button class="btn" id="saveSettings">Save settings</button><span id="setMsg" class="muted"></span></div>
     </div>
     <div class="card">
+      <h2>Backup AI (optional)</h2>
+      <p class="muted">When Gemini is busy, the app first retries and switches to other Gemini models on its own. If you still see "busy" often, add a second free service here. It's only used when Gemini fails.</p>
+      <label for="backup">Backup service</label>
+      <select id="backup">
+        <option value="none">None</option>
+        <option value="groq">Groq (free, very fast)</option>
+        <option value="openrouter">OpenRouter (free models)</option>
+      </select>
+      <div id="backupBox" class="hidden">
+        <p class="muted" id="backupHelp"></p>
+        <label for="backupKey">Backup API key</label>
+        <div class="row">
+          <input type="password" id="backupKey" placeholder="Paste the backup key" style="flex:1">
+          <button class="btn" id="testBackup">Save &amp; test</button>
+        </div>
+        <label for="backupModel">Backup model</label>
+        <select id="backupModel"></select>
+        <div id="backupMsg"></div>
+      </div>
+    </div>
+    <div class="card">
       <h2>Tips</h2>
       <p class="muted">• Use <b>Chrome</b> or <b>Edge</b> on a computer, <b>Chrome</b> on Android, or <b>Safari</b> on iPhone.<br>
       • On your phone, open the browser menu and tap <b>Add to Home Screen</b> so it opens like an app.<br>
@@ -274,7 +297,7 @@ const store = {
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let S = Object.assign({apiKey:'', model:'gemini-2.5-flash', level:'Upper-intermediate', native:'', voice:'', rate:1, autoSpeak:true, autoSend:false, repeatMode:true}, store.get('settings', {}));
+let S = Object.assign({apiKey:'', model:'gemini-2.5-flash', level:'Upper-intermediate', native:'', voice:'', rate:1, autoSpeak:true, autoSend:false, repeatMode:true, models:null, backup:'none', backupKey:'', backupModel:''}, store.get('settings', {}));
 let words = store.get('words', []);
 
 /* ---------- scenarios ---------- */
@@ -334,12 +357,13 @@ const DEC_SYSTEM = () => `A non-native English speaker (level ${S.level}) who wo
 
 /* ---------- Gemini ---------- */
 const API = 'https://generativelanguage.googleapis.com/v1beta';
-async function gemini(system, contents){
-  if(!S.apiKey) throw new Error('Add your free Gemini API key in ⚙️ Settings first.');
-  const model = (S.model || 'gemini-2.5-flash').replace(/^models\//,'');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function aiError(msg, retryable){ const e = new Error(msg); e.retryable = retryable; return e; }
+
+async function geminiCall(model, system, contents){
   let res;
   try{
-    res = await fetch(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
+    res = await fetch(`${API}/models/${encodeURIComponent(model.replace(/^models\//,''))}:generateContent`, {
       method:'POST',
       headers:{'Content-Type':'application/json','x-goog-api-key':S.apiKey},
       body: JSON.stringify({
@@ -348,19 +372,85 @@ async function gemini(system, contents){
         generationConfig:{responseMimeType:'application/json', temperature:0.8}
       })
     });
-  }catch(e){ throw new Error('Could not reach Google. Check your internet connection.'); }
+  }catch(e){ throw aiError('Could not reach Google. Check your internet connection.', true); }
   const data = await res.json().catch(()=>({}));
   if(!res.ok){
     const msg = data.error?.message || res.statusText;
-    if(res.status === 429) throw new Error('You\'ve hit the free limit for now. Wait a minute and try again. (' + msg + ')');
-    if(res.status === 400 && /API key/i.test(msg)) throw new Error('Your API key doesn\'t work. Check it in ⚙️ Settings.');
-    if(res.status === 404) throw new Error('That AI model isn\'t available. Go to ⚙️ Settings and click "Save & test" to pick a working one.');
-    throw new Error(msg);
+    if(res.status === 400 && /API key/i.test(msg)) throw aiError('Your Gemini API key doesn\'t work. Check it in ⚙️ Settings.', false);
+    if([429,500,502,503,504,404].includes(res.status)) throw aiError(`${model} is busy or unavailable (${res.status}).`, true);
+    throw aiError(msg, false);
   }
   const parts = data.candidates?.[0]?.content?.parts || [];
   const text = parts.filter(p => !p.thought).map(p => p.text || '').join('');
-  if(!text) throw new Error('The AI returned an empty answer. Please try again.');
+  if(!text) throw aiError('The AI returned an empty answer.', true);
   return parseJSON(text);
+}
+
+const BACKUPS = {
+  groq: {name:'Groq', url:'https://api.groq.com/openai/v1', keyUrl:'https://console.groq.com/keys'},
+  openrouter: {name:'OpenRouter', url:'https://openrouter.ai/api/v1', keyUrl:'https://openrouter.ai/keys'}
+};
+async function backupCall(system, contents){
+  const B = BACKUPS[S.backup];
+  const messages = [{role:'system', content:system}].concat(contents.map(c => ({role: c.role === 'model' ? 'assistant' : 'user', content: c.parts[0].text})));
+  const body = {model:S.backupModel, messages, temperature:0.8};
+  if(S.backup === 'groq') body.response_format = {type:'json_object'};
+  let res;
+  try{
+    res = await fetch(`${B.url}/chat/completions`, {method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer ' + S.backupKey}, body:JSON.stringify(body)});
+  }catch(e){ throw aiError(`${B.name} could not be reached from this page (it may block browser apps).`, true); }
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok){
+    const msg = data.error?.message || res.statusText;
+    throw aiError(`${B.name}: ${msg}`, [429,500,502,503,504].includes(res.status));
+  }
+  const text = data.choices?.[0]?.message?.content || '';
+  if(!text) throw aiError(`${B.name} returned an empty answer.`, true);
+  return parseJSON(text);
+}
+
+function note(msg){
+  const box = document.createElement('div'); box.className = 'note'; box.textContent = msg;
+  const target = document.querySelector('main section:not(.hidden)');
+  target.appendChild(box); setTimeout(() => box.remove(), 6000);
+}
+
+async function askAI(system, contents){
+  if(!S.apiKey && !(S.backup !== 'none' && S.backupKey)) throw new Error('Add your free Gemini API key in ⚙️ Settings first.');
+  const errors = [];
+  if(S.apiKey){
+    if(!S.models){ try{ S.models = await loadModels(); store.set('settings', S); }catch(e){ S.models = []; } }
+    const others = (S.models || []).filter(m => m !== S.model).slice(0, 3);
+    const plan = [S.model, S.model, ...others];      // retry the main model once, then try others
+    for(let i = 0; i < plan.length; i++){
+      try{
+        const r = await geminiCall(plan[i], system, contents);
+        if(plan[i] !== S.model){
+          note(`${S.model} was busy, so I switched to ${plan[i]}. (You can change it in ⚙️ Settings.)`);
+          S.model = plan[i]; store.set('settings', S);
+          const sel = $('#model');
+          if(![...sel.options].some(o => o.value === S.model)) sel.insertAdjacentHTML('afterbegin', `<option value="${esc(S.model)}">${esc(S.model)}</option>`);
+          sel.value = S.model;
+        }
+        return r;
+      }catch(e){
+        errors.push(e);
+        if(!e.retryable) break;
+        await sleep(i === 0 ? 1500 : 400);
+      }
+    }
+  }
+  if(S.backup !== 'none' && S.backupKey && S.backupModel){
+    try{
+      const r = await backupCall(system, contents);
+      note(`Gemini was busy, so this answer came from ${BACKUPS[S.backup].name}.`);
+      return r;
+    }catch(e){ errors.push(e); }
+  }
+  if(errors.length && errors.every(e => e.retryable)){
+    throw new Error('All the free AI models are busy right now. Wait a minute and try again' + (S.backup === 'none' ? ', or add a backup AI service in ⚙️ Settings.' : '.'));
+  }
+  throw errors.find(e => !e.retryable) || errors[errors.length - 1];
 }
 function parseJSON(t){
   try{ return JSON.parse(t); }catch(e){
@@ -381,7 +471,7 @@ async function loadModels(){
     let s = parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0,0])[1]) * 10;
     if(/flash/.test(n)) s += 100;
     if(/lite/.test(n)) s -= 40;
-    if(/preview|exp/.test(n)) s -= 15;
+    if(/preview|exp/.test(n)) s -= 60;
     if(/latest/.test(n)) s -= 5;
     if(/-\d{3}$/.test(n)) s -= 2;
     return s;
@@ -538,7 +628,7 @@ async function sendTurn(text){
   convo.history.push({role:'user', parts:[{text}]});
   const thisConvo = convo;
   try{
-    const r = await gemini(convo.system, convo.history);
+    const r = await askAI(convo.system, convo.history);
     if(thisConvo !== convo) return;
     convo.history.push({role:'model', parts:[{text: JSON.stringify(r)}]});
     loading.remove();
@@ -588,7 +678,7 @@ $('#hintBtn').addEventListener('click', async () => {
   }).join('\n');
   $('#hints').innerHTML = '<p class="loading">Thinking of ideas…</p>';
   try{
-    const r = await gemini(HINT_SYSTEM(), [{role:'user', parts:[{text:'Conversation so far:\n' + transcript + '\n\nWhat could the learner say next?'}]}]);
+    const r = await askAI(HINT_SYSTEM(), [{role:'user', parts:[{text:'Conversation so far:\n' + transcript + '\n\nWhat could the learner say next?'}]}]);
     $('#hints').innerHTML = '<h3>Tap one to use it</h3>' + (r.options || []).map(o => `<div class="opt" data-use="${esc(o.say)}">${esc(o.say)}<small>${esc(o.why)}</small></div>`).join('');
     $('#hints').scrollIntoView({behavior:'smooth', block:'end'});
   }catch(e){ $('#hints').innerHTML = ''; showErr(e.message, $('#chat')); }
@@ -665,7 +755,7 @@ $('#orgGo').addEventListener('click', async () => {
   const out = $('#orgOut'); out.innerHTML = '<p class="loading">Organizing your idea…</p>';
   $('#orgGo').disabled = true;
   try{
-    const r = await gemini(ORG_SYSTEM(), [{role:'user', parts:[{text:t}]}]);
+    const r = await askAI(ORG_SYSTEM(), [{role:'user', parts:[{text:t}]}]);
     out.innerHTML = `
       <div class="card"><h3>What you mean</h3><p>${esc(r.understood)}</p></div>
       <div class="card"><h3>Organized, step by step</h3>
@@ -686,7 +776,7 @@ $('#decGo').addEventListener('click', async () => {
   const out = $('#decOut'); out.innerHTML = '<p class="loading">Figuring it out…</p>';
   $('#decGo').disabled = true;
   try{
-    const r = await gemini(DEC_SYSTEM(), [{role:'user', parts:[{text:`What my coworker said: "${t}"` + (ctx ? `\nContext: ${ctx}` : '')}]}]);
+    const r = await askAI(DEC_SYSTEM(), [{role:'user', parts:[{text:`What my coworker said: "${t}"` + (ctx ? `\nContext: ${ctx}` : '')}]}]);
     out.innerHTML = `
       <div class="card"><h3>What they meant</h3><p>${esc(r.meaning)}</p><p class="muted">Tone: ${esc(r.tone)}</p></div>
       <div class="card"><h3>Breaking it down</h3>${vocabChips(r.breakdown)}</div>
@@ -769,7 +859,8 @@ $('#saveKey').addEventListener('click', async () => {
     if(!list.length) throw new Error('No usable models were found for this key.');
     const m = $('#model');
     m.innerHTML = list.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
-    S.model = list.includes(S.model) && S.model !== 'gemini-2.5-flash' ? S.model : list[0];
+    S.models = list;
+    S.model = list[0];
     m.value = S.model;
     readSettings();
     msg.innerHTML = `<p style="color:var(--accent);font-weight:600">✓ Your key works! Using ${esc(S.model)}. Go to 💬 Talk to start.</p>`;
@@ -780,9 +871,62 @@ $('#saveKey').addEventListener('click', async () => {
   }
 });
 
+/* ---------- BACKUP SETTINGS ---------- */
+function showBackupBox(){
+  const v = $('#backup').value;
+  $('#backupBox').classList.toggle('hidden', v === 'none');
+  if(v !== 'none'){
+    const B = BACKUPS[v];
+    $('#backupHelp').innerHTML = `Get a free key at <a href="${B.keyUrl}" target="_blank" rel="noopener">${B.keyUrl.replace('https://','')}</a> (sign up, create a key, copy it).`;
+  }
+}
+$('#backup').addEventListener('change', () => { S.backup = $('#backup').value; if(S.backup === 'none'){ store.set('settings', S); } showBackupBox(); });
+$('#backupModel').addEventListener('change', () => { S.backupModel = $('#backupModel').value; store.set('settings', S); });
+$('#testBackup').addEventListener('click', async () => {
+  S.backup = $('#backup').value; S.backupKey = $('#backupKey').value.trim();
+  const msg = $('#backupMsg');
+  if(!S.backupKey){ msg.innerHTML = '<div class="err">Please paste the key first.</div>'; return; }
+  const B = BACKUPS[S.backup];
+  msg.innerHTML = '<p class="loading">Testing…</p>';
+  try{
+    let res;
+    try{ res = await fetch(`${B.url}/models`, {headers:{'Authorization':'Bearer ' + S.backupKey}}); }
+    catch(e){ throw new Error(`${B.name} can't be reached from this page. It may not allow browser apps; try the other service.`); }
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error?.message || res.statusText);
+    let ids = (data.data || []).map(m => m.id);
+    let prefer;
+    if(S.backup === 'openrouter'){
+      ids = ids.filter(id => /:free$/.test(id));
+      prefer = [/llama-3\.3-70b/, /deepseek-chat|deepseek-v3/, /gemma-3-27b/, /qwen.*(72b|235b)/, /mistral-small/];
+    }else{
+      ids = ids.filter(id => !/whisper|tts|guard|playai|orpheus|prompt/i.test(id));
+      prefer = [/llama-3\.3-70b-versatile/, /gpt-oss-120b/, /llama-4/, /qwen/];
+    }
+    if(!ids.length) throw new Error('No free chat models were found.');
+    const best = prefer.map(rx => ids.find(id => rx.test(id))).find(Boolean) || ids[0];
+    $('#backupModel').innerHTML = ids.map(id => `<option value="${esc(id)}">${esc(id)}</option>`).join('');
+    S.backupModel = best; $('#backupModel').value = best;
+    // real test call
+    await backupCall('Reply ONLY with JSON: {"ok": true}', [{role:'user', parts:[{text:'test'}]}]);
+    store.set('settings', S);
+    msg.innerHTML = `<p style="color:var(--accent);font-weight:600">✓ Backup works, using ${esc(best)}.</p>`;
+  }catch(e){
+    store.set('settings', S);
+    msg.innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  }
+});
+function fillBackup(){
+  $('#backup').value = S.backup || 'none';
+  $('#backupKey').value = S.backupKey || '';
+  if(S.backupModel) $('#backupModel').innerHTML = `<option value="${esc(S.backupModel)}">${esc(S.backupModel)}</option>`;
+  showBackupBox();
+}
+
 /* ---------- init ---------- */
 renderScenarios();
 fillSettings();
+fillBackup();
 loadVoices();
 if('speechSynthesis' in window) speechSynthesis.onvoiceschanged = loadVoices;
 if(!S.apiKey) showTab('settings');
