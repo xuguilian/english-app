@@ -660,22 +660,47 @@ async function loadModels(){
 
 /* ---------- speech ---------- */
 let voices = [];
+// Rank voices so the most human-sounding one is used automatically.
+const NOVELTY = /\b(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Ralph|Kathy|Princess|Deranged|Hysterical|Grandma|Grandpa|Rocko|Shelley|Eddy|Flo|Reed|Sandy)\b/i;
+function voiceScore(v){
+  const n = v.name;
+  let sc = 0;
+  if(/natural|neural/i.test(n)) sc += 100;          // Edge "Online (Natural)", neural voices
+  if(/premium/i.test(n)) sc += 90;                  // iPhone / Mac premium voices
+  if(/enhanced/i.test(n)) sc += 70;                 // iPhone / Mac enhanced voices
+  if(/online/i.test(n)) sc += 30;
+  if(/^Google /i.test(n)) sc += 45;                 // Chrome's Google voices
+  if(/Samantha|Ava|Allison|Susan|Tom|Evan|Zoe|Nathan|Joelle|Noelle/i.test(n)) sc += 15; // better built-in Apple voices
+  if(v.localService === false) sc += 10;            // network voices are usually higher quality
+  if(/espeak|robot/i.test(n)) sc -= 120;
+  if(NOVELTY.test(n)) sc -= 150;
+  if(/compact/i.test(n)) sc -= 20;
+  const want = S.persona === 'british' ? /en[-_]GB/i : /en[-_]US/i;
+  if(want.test(v.lang)) sc += 25; else if(/en[-_](GB|US|AU|CA)/i.test(v.lang)) sc += 8;
+  if(v.default) sc += 3;
+  return sc;
+}
+function bestVoice(){ return voices.slice().sort((a, b) => voiceScore(b) - voiceScore(a))[0] || null; }
+function currentVoice(){
+  if(S.voicePick && S.voicePick !== 'auto') return voices.find(v => v.name === S.voicePick) || bestVoice();
+  return bestVoice();
+}
 function loadVoices(){
   if(!('speechSynthesis' in window)) return;
   voices = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
   const sel = $('#voice');
-  sel.innerHTML = voices.map(v => `<option value="${esc(v.name)}">${esc(v.name)} (${esc(v.lang)})</option>`).join('') || '<option value="">Default voice</option>';
-  if(!S.voice){
-    const pref = voices.find(v => /Google US English/i.test(v.name)) || voices.find(v => /en-US/i.test(v.lang) && /natural|online/i.test(v.name)) || voices.find(v => /en-US/i.test(v.lang)) || voices[0];
-    if(pref) S.voice = pref.name;
-  }
-  sel.value = S.voice;
+  const best = bestVoice();
+  const ranked = voices.slice().sort((a, b) => voiceScore(b) - voiceScore(a));
+  sel.innerHTML = `<option value="auto">🌟 ${L('Automatic: most natural', '自动：最自然的声音')}${best ? ' (' + esc(best.name) + ')' : ''}</option>` +
+    ranked.map(v => `<option value="${esc(v.name)}">${esc(v.name)} (${esc(v.lang)})</option>`).join('');
+  if(S.voicePick === undefined){ S.voicePick = 'auto'; store.set('settings', S); }
+  sel.value = voices.some(v => v.name === S.voicePick) ? S.voicePick : 'auto';
 }
 function speak(text, rate, onEnd){
   if(!('speechSynthesis' in window) || !text){ if(onEnd) onEnd(); return; }
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  const v = voices.find(v => v.name === S.voice);
+  const v = currentVoice();
   if(v){ u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
   u.rate = rate || S.rate;
   if(onEnd){
@@ -1161,7 +1186,7 @@ function readSettings(){
   const wasLevel = S.level;
   S.level = $('#level').value;
   if(S.level !== wasLevel) renderScenarios(); S.native = $('#native').value.trim();
-  S.voice = $('#voice').value; S.rate = parseFloat($('#rate').value);
+  S.voicePick = $('#voice').value || 'auto'; S.rate = parseFloat($('#rate').value);
   S.autoSpeak = $('#autoSpeak').checked; S.autoSend = $('#autoSend').checked; S.repeatMode = $('#repeatMode').checked;
   S.model = $('#model').value || S.model;
   store.set('settings', S);
@@ -1452,7 +1477,7 @@ function applyLang(){
   document.documentElement.lang = S.lang === 'zh' ? 'zh-CN' : 'en';
   $('#langBtn').textContent = S.lang === 'zh' ? 'English' : '中文';
   $('#rateVal').textContent = Number(S.rate).toFixed(2);
-  paintName(); paintHands(); paintMicLang(); renderScenarios();
+  paintName(); paintHands(); paintMicLang(); renderScenarios(); loadVoices();
   if(!$('#tab-words').classList.contains('hidden')) renderWords();
   if(!$('#tab-memory').classList.contains('hidden')) renderMemory();
 }
@@ -1471,7 +1496,7 @@ function fillAbout(){
 $('#saveAbout').addEventListener('click', () => {
   S.about = $('#about').value.trim(); S.goals = $('#goalsIn').value.trim();
   S.pname = $('#pname').value.trim() || 'Alex'; S.persona = $('#persona').value;
-  store.set('settings', S); paintName(); fillAbout();
+  store.set('settings', S); paintName(); fillAbout(); loadVoices();
   $('#aboutMsg').textContent = L(`Saved ✓ ${PNAME()} will use this from your next conversation.`, `已保存 ✓ 下次对话开始生效。`);
   setTimeout(() => $('#aboutMsg').textContent = '', 4000);
 });
