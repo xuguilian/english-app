@@ -330,6 +330,16 @@
       <label class="row" style="font-weight:400"><input type="checkbox" id="autoSend"> <span id="t-autoSend">Send automatically when I stop speaking</span></label>
       <label class="row" style="font-weight:400"><input type="checkbox" id="repeatMode" checked> <span id="t-repeatMode">In 🎯 speaking drills, ask me to say the better version again</span></label>
 
+      <label for="sttMode">Voice input (microphone)</label>
+      <select id="sttMode">
+        <option value="auto">Automatic</option>
+        <option value="browser">Phone / browser speech recognition</option>
+        <option value="ai">AI transcription (works on any phone)</option>
+      </select>
+      <p class="muted" id="sttHelp">If the 🎤 doesn't work on your phone, choose "AI transcription": the app records your voice and the AI writes down what you said.</p>
+      <div class="row"><button class="btn ghost small" id="micTest">🎤 Test the microphone</button></div>
+      <div id="micLog" class="muted" style="font-size:12px;margin-top:6px;line-height:1.6"></div>
+
       <div class="row" style="margin-top:12px"><button class="btn" id="saveSettings">Save settings</button><span id="setMsg" class="muted"></span></div>
     </div>
     <div class="card">
@@ -359,6 +369,7 @@
       • On your phone, open the browser menu and tap <b>Add to Home Screen</b> so it opens like an app.<br>
       • If the 🎤 is blocked, click the icon at the left of the address bar and allow the microphone.<br>
       • If you hit a "free limit" message, wait a minute; the free tier limits requests per minute and per day.</p>
+      <p class="muted" id="verLine"></p>
     </div>
   </section>
 </main>
@@ -720,6 +731,7 @@ document.addEventListener('click', () => {
   try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
 }, {capture:true});
 let rec = null, recBtn = null;
+const APP_VERSION = '1.9';
 const IN_APP = /MicroMessenger|WeChat|FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent);
 const IOS_NOT_SAFARI = /iPhone|iPad|iPod/i.test(navigator.userAgent) && /CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
 function micHelp(){
@@ -728,7 +740,134 @@ function micHelp(){
   return L('Voice input isn\'t supported in this browser. Please use Chrome (Android/computer) or Safari (iPhone), or just type.', '这个浏览器不支持语音输入。请用 Chrome（安卓或电脑）或 Safari（苹果手机），或者直接打字。');
 }
 function resetMicBtn(b){ if(b){ b.classList.remove('on'); b.textContent = '🎤'; } }
+function sttMode(){
+  const m = S.sttMode || 'auto';
+  if(m === 'ai') return 'ai';
+  if(m === 'browser') return SR ? 'browser' : 'ai';
+  return (SR && !S.sttBroken && !IN_APP) ? 'browser' : 'ai';
+}
+// Phone speech recognition failed: in Automatic mode, switch to AI transcription from now on.
+function sttFailed(){
+  if((S.sttMode || 'auto') !== 'auto') return false;
+  S.sttBroken = true; store.set('settings', S);
+  showErr(L("This phone's built-in speech recognition doesn't work here, so the app has switched to AI transcription. Tap 🎤 again and speak.", '这台手机自带的语音识别在这里不能用，已经自动换成"AI 录音识别"。请再点一次 🎤 说话。'));
+  return true;
+}
 function toggleMic(btn, ta, onDone, opts){
+  if(aiRec){
+    if(aiRec.btn === btn){ aiRec.stop(); return; }
+    aiRec.cancel();
+  }
+  if(sttMode() === 'ai'){
+    if(rec){ const old = rec; rec = null; try{ old.onend = null; old.onerror = null; old.abort(); }catch(e){} resetMicBtn(recBtn); }
+    aiMic(btn, ta, onDone, opts); return;
+  }
+  browserMic(btn, ta, onDone, opts);
+}
+
+/* ---- AI transcription: record with the microphone, then Gemini writes down what was said ---- */
+let aiRec = null;
+function blobToB64(blob){ return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1] || ''); fr.onerror = rej; fr.readAsDataURL(blob); }); }
+async function toWav16k(blob){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AC();
+  const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
+  try{ ctx.close(); }catch(e){}
+  const rate = 16000, len = Math.max(1, Math.ceil(buf.duration * rate));
+  const off = new OfflineAudioContext(1, len, rate);
+  const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start();
+  const data = (await off.startRendering()).getChannelData(0);
+  const out = new ArrayBuffer(44 + data.length * 2), v = new DataView(out);
+  const w = (o, str) => { for(let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + data.length * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, data.length * 2, true);
+  for(let i = 0; i < data.length; i++){ const x = Math.max(-1, Math.min(1, data[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+  return new Blob([out], {type:'audio/wav'});
+}
+async function transcribe(blob, lang){
+  let audio = blob, mime = (blob.type || 'audio/webm').split(';')[0];
+  try{ audio = await toWav16k(blob); mime = 'audio/wav'; }catch(e){ /* send the original recording */ }
+  const zh = /^zh/.test(lang || '');
+  const r = await askAI(`You are a speech-to-text engine. Write down exactly what the speaker says in the audio. ${zh ? 'The speaker mostly speaks Chinese (Mandarin), maybe mixed with some English words. Write Chinese in simplified characters.' : 'The speaker is an English learner speaking English, maybe with an accent and mistakes.'} Do NOT correct mistakes, do NOT translate, do NOT add anything. If nobody speaks, return an empty string. Respond ONLY with JSON: {"text": string}`,
+    [{role:'user', parts:[{inlineData:{mimeType:mime, data: await blobToB64(audio)}}, {text:'Transcribe this audio.'}]}]);
+  return String(r.text || '').trim();
+}
+async function aiMic(btn, ta, onDone, opts){
+  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) || !window.MediaRecorder){ showErr(micHelp()); return; }
+  if(!S.apiKey){ showErr(L('AI transcription needs your Gemini key in ⚙️ Settings.', 'AI 录音识别需要先在 ⚙️ 设置里填好 Gemini 密钥。')); return; }
+  speechSynthesis && speechSynthesis.cancel();
+  btn.classList.add('on'); btn.textContent = '■';
+  const me = {btn, stop(){}, cancel(){}};
+  aiRec = me;
+  let stream;
+  try{ stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}}); }
+  catch(e){
+    if(aiRec === me) aiRec = null; resetMicBtn(btn);
+    showErr(/Android/i.test(navigator.userAgent)
+      ? L('The microphone is blocked. In Chrome: ⋮ → Settings → Site settings → Microphone → allow this site. Also check phone Settings → Apps → Chrome → Permissions → Microphone → Allow.', '麦克风被阻止了。在 Chrome 里：⋮ → 设置 → 网站设置 → 麦克风 → 允许这个网站。再检查手机 设置 → 应用 → Chrome → 权限 → 麦克风 → 允许。')
+      : L('The microphone is blocked. Allow the microphone for this site and try again.', '麦克风被阻止了。请允许这个网站使用麦克风，再试一次。'));
+    return;
+  }
+  if(aiRec !== me){ stream.getTracks().forEach(t => t.stop()); resetMicBtn(btn); return; }   // cancelled while asking permission
+  const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].find(m => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || '';
+  let mr;
+  try{ mr = new MediaRecorder(stream, mime ? {mimeType: mime} : undefined); }
+  catch(e){ stream.getTracks().forEach(t => t.stop()); aiRec = null; resetMicBtn(btn); showErr(micHelp()); return; }
+  const chunks = [];
+  let cancelled = false, heard = false, vad = false, ac = null, timer = null;
+  const started = Date.now();
+  const stop = () => { if(mr.state !== 'inactive') mr.stop(); };
+  me.stop = stop; me.cancel = () => { cancelled = true; stop(); };
+  mr.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
+  // Stop by itself after the person finishes speaking (about 1.6 s of quiet).
+  try{
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    if(ac.resume) await ac.resume();
+    const an = ac.createAnalyser(); an.fftSize = 1024;
+    ac.createMediaStreamSource(stream).connect(an);
+    const data = new Uint8Array(an.fftSize);
+    let lastLoud = Date.now();
+    vad = ac.state === 'running';
+    timer = setInterval(() => {
+      an.getByteTimeDomainData(data);
+      let sum = 0; for(let i = 0; i < data.length; i++){ const x = (data[i] - 128) / 128; sum += x * x; }
+      if(Math.sqrt(sum / data.length) > 0.035){ heard = true; lastLoud = Date.now(); }
+      if(vad && heard && Date.now() - lastLoud > 1600) stop();
+      else if(vad && !heard && Date.now() - started > 9000) stop();
+    }, 100);
+  }catch(e){ vad = false; }
+  const maxT = setTimeout(stop, 60000);
+  mr.onstop = async () => {
+    clearInterval(timer); clearTimeout(maxT);
+    stream.getTracks().forEach(t => t.stop());
+    try{ ac && ac.close(); }catch(e){}
+    if(aiRec === me) aiRec = null;
+    if(cancelled){ resetMicBtn(btn); return; }
+    const blob = new Blob(chunks, {type: mr.mimeType || mime || 'audio/webm'});
+    if(blob.size < 1500 || (vad && !heard)){
+      resetMicBtn(btn);
+      if(!S.handsFree) showErr(L("I didn't hear anything. Try again, a little closer to the mic.", '没有听到声音。请靠近麦克风再试一次。'));
+      return;
+    }
+    btn.textContent = '…'; btn.disabled = true;
+    try{
+      const text = await transcribe(blob, opts && opts.lang);
+      if(text){
+        ta.value = (ta.value ? ta.value.trim() + ' ' : '') + text;
+        if(ta.dispatchEvent) ta.dispatchEvent(new Event('input'));
+        if(onDone) onDone();
+      }else if(!S.handsFree){
+        showErr(L("I couldn't make out any words. Please try again.", '没有听清楚。请再说一次。'));
+      }
+    }catch(e){ showErr(L('Could not turn the recording into text: ', '没能把录音变成文字：') + e.message); }
+    finally{ btn.disabled = false; resetMicBtn(btn); }
+  };
+  mr.start(250);
+  note(L('Listening… It stops by itself when you finish, or tap ■.', '正在听……说完会自动停，也可以点 ■。'));
+}
+
+function browserMic(btn, ta, onDone, opts){
   if(!SR){ showErr(micHelp()); return; }
   if(rec){
     if(recBtn === btn){ try{ rec.stop(); }catch(e){} return; }
@@ -761,14 +900,16 @@ function toggleMic(btn, ta, onDone, opts){
   r.onerror = e => {
     const c = e.error;
     if(c === 'aborted') return;
-    if(c === 'not-allowed' || c === 'service-not-allowed'){
+    if(c === 'service-not-allowed' && sttFailed()){}
+    else if(c === 'not-allowed' || c === 'service-not-allowed'){
       showErr(/iPhone|iPad|iPod/i.test(navigator.userAgent)
         ? L('The microphone or dictation is turned off. On iPhone: Settings → Safari → Microphone → Allow, and Settings → General → Keyboard → Enable Dictation. Then try again.', '麦克风或听写被关闭了。苹果手机：设置 → Safari → 麦克风 → 允许；再到 设置 → 通用 → 键盘 → 打开"启用听写"。然后再试一次。')
         : L('The microphone is blocked. Tap the icon at the left of the address bar, allow the microphone, and try again.', '麦克风被阻止了。点地址栏左边的图标，允许使用麦克风，然后再试一次。'));
     }
     else if(c === 'no-speech'){ if(!S.handsFree) showErr(L('I didn\'t hear anything. Try again, a little closer to the mic.', '没有听到声音。请靠近麦克风再试一次。')); }
-    else if(c === 'network') showErr(L('Voice input needs an internet connection.', '语音输入需要联网。'));
+    else if(c === 'network'){ if(!sttFailed()) showErr(L('Voice input needs an internet connection.', '语音输入需要联网。')); }
     else if(c === 'audio-capture') showErr(L('No microphone was found. Check that no other app is using it.', '找不到麦克风。请检查是不是别的应用正在用麦克风。'));
+    else if(c === 'language-not-supported' && sttFailed()){}
     else if(c === 'language-not-supported') showErr(zhLang
       ? L('This phone can\'t recognise Chinese speech here. Tip: tap the text box and use the 🎤 on your phone\'s keyboard to speak Chinese instead.', '这台手机在这里不能识别中文语音。小技巧：点一下输入框，用手机键盘上的 🎤 说中文，一样可以。')
       : L('This language isn\'t supported for voice input here.', '这里不支持这种语言的语音输入。'));
@@ -785,6 +926,7 @@ function toggleMic(btn, ta, onDone, opts){
     if(rec === r && !started){
       try{ r.onend = null; r.abort(); }catch(e){}
       rec = null; resetMicBtn(btn);
+      if(sttFailed()) return;
       showErr(zhLang
         ? L('Chinese voice input didn\'t start on this phone. Tip: tap the text box and use the 🎤 on your phone\'s keyboard instead.', '这台手机上的中文语音没有启动。小技巧：点一下输入框，用手机键盘上的 🎤 说中文。')
         : L('The microphone didn\'t start. Please check the microphone permission and try again.', '麦克风没有启动。请检查麦克风权限，再试一次。'));
@@ -1176,6 +1318,7 @@ $('#importFile').addEventListener('change', async e => {
 function fillSettings(){
   $('#apiKey').value = S.apiKey; $('#level').value = S.level; $('#native').value = S.native;
   $('#rate').value = S.rate; $('#rateVal').textContent = Number(S.rate).toFixed(2);
+  $('#sttMode').value = S.sttMode || 'auto';
   $('#autoSpeak').checked = S.autoSpeak; $('#autoSend').checked = S.autoSend; $('#repeatMode').checked = S.repeatMode;
   const m = $('#model');
   if(![...m.options].some(o => o.value === S.model)) m.insertAdjacentHTML('afterbegin', `<option value="${esc(S.model)}">${esc(S.model)}</option>`);
@@ -1184,6 +1327,7 @@ function fillSettings(){
 }
 function readSettings(){
   const wasLevel = S.level;
+  S.sttMode = $('#sttMode').value || 'auto';
   S.level = $('#level').value;
   if(S.level !== wasLevel) renderScenarios(); S.native = $('#native').value.trim();
   S.voicePick = $('#voice').value || 'auto'; S.rate = parseFloat($('#rate').value);
@@ -1191,6 +1335,37 @@ function readSettings(){
   S.model = $('#model').value || S.model;
   store.set('settings', S);
 }
+$('#sttMode').addEventListener('change', () => {
+  S.sttMode = $('#sttMode').value; S.sttBroken = false; store.set('settings', S);
+});
+$('#micTest').addEventListener('click', async () => {
+  const out = $('#micLog'); out.innerHTML = '';
+  const log = t => { out.innerHTML += esc(t) + '<br>'; };
+  log(L('Version ', '版本 ') + APP_VERSION);
+  log(L('Browser: ', '浏览器：') + navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 110));
+  log(L('Built-in speech recognition: ', '自带语音识别：') + (SR ? L('available', '有') : L('not available', '没有')));
+  try{ const pm = await navigator.permissions.query({name:'microphone'}); log(L('Microphone permission: ', '麦克风权限：') + pm.state); }catch(e){}
+  let micOk = false;
+  try{ const st = await navigator.mediaDevices.getUserMedia({audio:true}); micOk = true; st.getTracks().forEach(t => t.stop()); log(L('Microphone: works ✓', '麦克风：正常 ✓')); }
+  catch(e){ log(L('Microphone: blocked or missing ✗ (', '麦克风：被阻止或找不到 ✗（') + e.name + ')'); }
+  let srOk = false;
+  if(SR && micOk){
+    log(L('Testing built-in speech recognition: say "hello" now…', '测试自带语音识别：现在说 "hello"……'));
+    await new Promise(res => {
+      let r; try{ r = new SR(); }catch(e){ log('✗ ' + e.message); return res(); }
+      r.lang = 'en-US';
+      const t = setTimeout(() => { log(L('  no answer in 7 seconds ✗', '  7 秒没有反应 ✗')); try{ r.onend = null; r.abort(); }catch(e){} res(); }, 7000);
+      r.onstart = () => log(L('  started ✓', '  已启动 ✓'));
+      r.onresult = e => { srOk = true; log(L('  heard: ', '  听到：') + e.results[0][0].transcript + ' ✓'); };
+      r.onerror = e => log(L('  error: ', '  错误：') + e.error);
+      r.onend = () => { clearTimeout(t); res(); };
+      try{ r.start(); }catch(e){ clearTimeout(t); log('✗ ' + e.message); res(); }
+    });
+  }
+  if(!micOk) log(L('→ Allow the microphone first (see the message above), then test again.', '→ 请先允许使用麦克风，再测试一次。'));
+  else if(srOk){ S.sttBroken = false; store.set('settings', S); log(L('→ Everything works. Voice input uses the built-in recognition.', '→ 一切正常，使用自带语音识别。')); }
+  else { S.sttBroken = true; if(S.sttMode === 'browser') S.sttMode = 'auto'; $('#sttMode').value = S.sttMode || 'auto'; store.set('settings', S); log(L('→ The built-in recognition does not work on this phone. Switched to AI transcription: the 🎤 will record you, and the AI writes down what you said.', '→ 这台手机的自带语音识别不能用。已换成"AI 录音识别"：点 🎤 会录音，AI 会把你说的话写下来。')); }
+});
 $('#rate').addEventListener('input', () => $('#rateVal').textContent = Number($('#rate').value).toFixed(2));
 $('#saveSettings').addEventListener('click', () => { readSettings(); $('#setMsg').textContent = L('Saved ✓','已保存 ✓'); speak('Hi! This is how I sound.'); setTimeout(() => $('#setMsg').textContent = '', 2500); });
 $('#saveKey').addEventListener('click', async () => {
@@ -1459,11 +1634,15 @@ const STATIC_ZH = [
   ['label[for=voice]', `${PN} 的声音`], ['label[for=rate]', '语速：<span id="rateVal">1.0</span>'],
   ['#t-autoSpeak', `自动朗读 ${PN} 的回答`], ['#t-autoSend', '说完后自动发送'], ['#t-repeatMode', '在 🎯 口语练习里，让我把更好的说法再说一遍'],
   ['#saveSettings', '保存设置'],
+  ['label[for=sttMode]', '语音输入方式（麦克风）'],
+  ['#sttMode option[value=auto]', '自动'], ['#sttMode option[value=browser]', '手机 / 浏览器自带语音识别'], ['#sttMode option[value=ai]', 'AI 录音识别（任何手机都能用）'],
+  ['#sttHelp', '如果手机上的 🎤 不能用，选"AI 录音识别"：应用会把你的声音录下来，AI 会把你说的话写成文字。'],
+  ['#micTest', '🎤 测试麦克风'],
   ['#tab-settings .card:nth-of-type(4) h2', '备用 AI（可选）'],
   ['#tab-settings .card:nth-of-type(4) > p.muted', 'Gemini 忙的时候，应用会先自动重试并换别的模型。如果还是经常显示"忙"，可以在这里加一个免费的备用服务。只有 Gemini 不能用时才会用它。'],
   ['label[for=backup]', '备用服务'], ['label[for=backupKey]', '备用 API 密钥'], ['label[for=backupModel]', '备用模型'], ['#testBackup', '保存并测试'],
   ['#tab-settings .card:nth-of-type(5) h2', '提示'],
-  ['#tab-settings .card:nth-of-type(5) p.muted', '• 电脑上用 <b>Chrome</b> 或 <b>Edge</b>，安卓手机用 <b>Chrome</b>，苹果手机用 <b>Safari</b>。<br>• 在手机上，打开浏览器菜单，点 <b>添加到主屏幕</b>，就能像应用一样打开。<br>• 如果 🎤 不能用，点地址栏左边的图标，允许使用麦克风。<br>• 如果看到"免费额度"的提示，等一分钟再试；免费版每分钟和每天的次数有限制。'],
+  ['#tab-settings .card:nth-of-type(5) p.muted:not(#verLine)', '• 电脑上用 <b>Chrome</b> 或 <b>Edge</b>，安卓手机用 <b>Chrome</b>，苹果手机用 <b>Safari</b>。<br>• 在手机上，打开浏览器菜单，点 <b>添加到主屏幕</b>，就能像应用一样打开。<br>• 如果 🎤 不能用，点地址栏左边的图标，允许使用麦克风。<br>• 如果看到"免费额度"的提示，等一分钟再试；免费版每分钟和每天的次数有限制。'],
   ['#talkIn', '说或者输入你的回答…', 'placeholder'], ['#sendBtn', '发送']
 ];
 function applyLang(){
@@ -1477,6 +1656,7 @@ function applyLang(){
   document.documentElement.lang = S.lang === 'zh' ? 'zh-CN' : 'en';
   $('#langBtn').textContent = S.lang === 'zh' ? 'English' : '中文';
   $('#rateVal').textContent = Number(S.rate).toFixed(2);
+  $('#verLine').textContent = L('Version ', '版本 ') + APP_VERSION;
   paintName(); paintHands(); paintMicLang(); renderScenarios(); loadVoices();
   if(!$('#tab-words').classList.contains('hidden')) renderWords();
   if(!$('#tab-memory').classList.contains('hidden')) renderMemory();
