@@ -266,6 +266,25 @@
         <div class="row"><button class="btn small warm" id="forgetYes">Yes, forget</button><button class="btn ghost small" id="forgetNo">Cancel</button></div>
       </div>
     </div>
+    <div class="card" id="syncCard">
+      <h2 id="t-syncH">☁️ Cloud sync</h2>
+      <p class="muted" id="t-syncP">Keep your memory, past conversations, word bank and teacher settings the same on your phone and computer. Everything is saved in a private (secret) Gist in your GitHub account, for free.</p>
+      <details><summary id="t-syncHowS">How to get a GitHub token (once, on a computer)</summary>
+        <ol class="setup" id="t-syncHowOl">
+          <li>Sign in at <a href="https://github.com" target="_blank" rel="noopener">github.com</a>, click your photo (top right) → <b>Settings</b>.</li>
+          <li>At the bottom of the left menu: <b>Developer settings → Personal access tokens → Tokens (classic)</b>.</li>
+          <li><b>Generate new token → Generate new token (classic)</b>. Note: <i>coffee english</i>. Expiration: <i>No expiration</i>. Tick only <b>gist</b>.</li>
+          <li>Click <b>Generate token</b> and copy it (it starts with <b>ghp_</b>). Paste it below on every device. The whole family can use the same token; each person uses a different sync name.</li>
+        </ol>
+      </details>
+      <label for="syncToken">GitHub token</label>
+      <input type="password" id="syncToken" placeholder="ghp_…">
+      <label for="syncName">Sync name (the same on all your own devices, different for each person)</label>
+      <input type="text" id="syncName" placeholder="e.g. me, mom, dad">
+      <label class="row" style="font-weight:400"><input type="checkbox" id="syncKeys" checked> <span id="t-syncKeys">Also sync my API keys (then a new device only needs the GitHub token and sync name)</span></label>
+      <div class="row" style="margin-top:10px"><button class="btn" id="syncGo">Connect &amp; sync now</button><button class="btn ghost small" id="syncOff">Turn off</button></div>
+      <div id="syncStatus" class="muted" style="margin-top:8px"></div>
+    </div>
   </section>
 
   <section id="tab-settings" class="hidden">
@@ -277,6 +296,7 @@
         <li>Paste it below and click <b>Save &amp; test</b>.</li>
       </ol>
       <p class="muted">Your key stays in this browser only. On Google's free tier, Google may use what you send to improve its products, so don't type private or sensitive information.</p>
+      <p class="muted" id="t-welcomeSync">Already using the app on another device with cloud sync? Go to <b>🧠 Memory → ☁️ Cloud sync</b>, enter your GitHub token and sync name, and everything comes back.</p>
     </div>
     <div class="card">
       <h2>👤 About me and my teacher</h2>
@@ -307,7 +327,7 @@
 
       <label for="model">AI model</label>
       <select id="model"><option value="gemini-2.5-flash">gemini-2.5-flash</option></select>
-      <p class="muted">Picked automatically after you test your key. A "flash" model is fast, and its free limits are generous.</p>
+      <p class="muted">Picked automatically after you test your key. "Flash-Lite" models are fast and have by far the most free requests per day (other models may allow only about 20 a day).</p>
 
       <label for="level">My English level</label>
       <select id="level">
@@ -344,7 +364,7 @@
     </div>
     <div class="card">
       <h2>Backup AI (optional)</h2>
-      <p class="muted">When Gemini is busy, the app first retries and switches to other Gemini models on its own. If you still see "busy" often, add a second free service here. It's only used when Gemini fails.</p>
+      <p class="muted">Recommended: add <b>Groq</b> (free). It turns your voice into text quickly with a large free allowance, and when Gemini is busy or its free requests are used up, the teacher keeps answering through Groq.</p>
       <label for="backup">Backup service</label>
       <select id="backup">
         <option value="none">None</option>
@@ -387,7 +407,7 @@
 /* ---------- storage ---------- */
 const store = {
   get(k, d){ try{ const v = localStorage.getItem('cbe_'+k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
-  set(k, v){ try{ localStorage.setItem('cbe_'+k, JSON.stringify(v)); }catch(e){} }
+  set(k, v){ try{ localStorage.setItem('cbe_'+k, JSON.stringify(v)); }catch(e){} if(typeof onStoreSet === 'function') onStoreSet(k); }
 };
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -536,6 +556,11 @@ function fastModel(){
   const ms = S.models || [];
   return ms.find(m => /flash-lite/.test(m) && !/preview|exp/.test(m)) || ms.find(m => /flash-lite/.test(m)) || S.model;
 }
+const coolUntil = {};   // model -> time until which it is skipped after hitting the free limit
+function coolDown(model, e){
+  if(e.status === 429) coolUntil[model] = Date.now() + (/day|daily|PerDay/i.test(e.detail || '') ? 3600e3 : 60e3);
+  else if(e.status === 404) coolUntil[model] = Date.now() + 24 * 3600e3;
+}
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function aiError(msg, retryable){ const e = new Error(msg); e.retryable = retryable; return e; }
 
@@ -571,7 +596,7 @@ async function geminiCall(model, system, contents){
   if(!res.ok){
     const msg = data.error?.message || res.statusText;
     if(res.status === 400 && /API key/i.test(msg)) throw aiError('Your Gemini API key doesn\'t work. Check it in ⚙️ Settings.', false);
-    if([429,500,502,503,504,404].includes(res.status)) throw aiError(`${model} is busy or unavailable (${res.status}).`, true);
+    if([429,500,502,503,504,404].includes(res.status)){ const er = aiError(`${model} is busy or unavailable (${res.status}).`, true); er.status = res.status; er.detail = msg; throw er; }
     throw aiError(msg, false);
   }
   const parts = data.candidates?.[0]?.content?.parts || [];
@@ -618,7 +643,9 @@ async function askAI(system, contents, o){
     const first = (o && o.model) || S.model;
     const others = (S.models || []).filter(m => m !== first).slice(0, 3);
     const plan = [first, first, ...others];      // retry the first model once, then try others
+    let skipped = 0;
     for(let i = 0; i < plan.length; i++){
+      if((coolUntil[plan[i]] || 0) > Date.now()) { skipped++; continue; }   // hit its limit recently: skip it
       try{
         const r = await geminiCall(plan[i], system, contents);
         if(plan[i] !== first && first === S.model){
@@ -631,11 +658,13 @@ async function askAI(system, contents, o){
         return r;
       }catch(e){
         errors.push(e);
+        coolDown(plan[i], e);
         if(!e.retryable) break;
         await sleep(i === 0 ? 700 : 200);
       }
     }
   }
+  if(S.apiKey && !errors.length){ const er = aiError('All Gemini models reached the free limit (429).', true); er.status = 429; errors.push(er); }
   // The backup services can only read text, so recordings are never sent to them.
   const hasAudio = contents.some(c => (c.parts || []).some(p => p.inlineData));
   if(S.backup !== 'none' && S.backupKey && S.backupModel && !hasAudio){
@@ -670,8 +699,8 @@ async function loadModels(){
     .filter(n => /^gemini/.test(n) && !/(image|tts|audio|live|embed|vision|robotics|computer|thinking-exp|learnlm)/i.test(n));
   const score = n => {
     let s = parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0,0])[1]) * 10;
-    if(/flash/.test(n)) s += 100;
-    if(/lite/.test(n)) s -= 40;
+    if(/flash-lite/.test(n)) s += 150;   // Flash-Lite: many more free requests per day
+    else if(/flash/.test(n)) s += 100;
     if(/preview|exp/.test(n)) s -= 60;
     if(/latest/.test(n)) s -= 5;
     if(/-\d{3}$/.test(n)) s -= 2;
@@ -743,7 +772,7 @@ document.addEventListener('click', () => {
   try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
 }, {capture:true});
 let rec = null, recBtn = null;
-const APP_VERSION = '1.11';
+const APP_VERSION = '1.14';
 const IN_APP = /MicroMessenger|WeChat|FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent);
 const IOS_NOT_SAFARI = /iPhone|iPad|iPod/i.test(navigator.userAgent) && /CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
 function micHelp(){
@@ -802,7 +831,30 @@ async function prepAudio(blob){
   try{ audio = await toWav16k(blob); mime = 'audio/wav'; }catch(e){ /* send the original recording */ }
   return {mime, b64: await blobToB64(audio)};
 }
+const groqOn = () => S.backup === 'groq' && !!S.backupKey;
+// Groq's Whisper model: fast speech-to-text with a large free allowance.
+async function groqTranscribe(blob, lang){
+  const t = (blob.type || '').split(';')[0];
+  const ext = /webm/.test(t) ? 'webm' : /ogg/.test(t) ? 'ogg' : /mp4|m4a|aac/.test(t) ? 'm4a' : /wav/.test(t) ? 'wav' : 'webm';
+  const zh = /^zh/.test(lang || '');
+  const fd = new FormData();
+  fd.append('file', blob, 'speech.' + ext);
+  fd.append('model', 'whisper-large-v3-turbo');
+  fd.append('response_format', 'json');
+  fd.append('temperature', '0');
+  fd.append('language', zh ? 'zh' : 'en');
+  if(zh) fd.append('prompt', '以下是普通话的句子，使用简体中文。');
+  let res;
+  try{ res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {method:'POST', headers:{'Authorization':'Bearer ' + S.backupKey}, body:fd}); }
+  catch(e){ throw aiError('Groq could not be reached.', true); }
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok) throw aiError('Groq: ' + (data.error?.message || res.statusText), res.status === 429 || res.status >= 500);
+  return String(data.text || '').trim();
+}
 async function transcribe(blob, lang){
+  if(groqOn()){
+    try{ return await groqTranscribe(blob, lang); }catch(e){ /* fall back to Gemini */ }
+  }
   const a = await prepAudio(blob);
   const zh = /^zh/.test(lang || '');
   const r = await askAI(`You are a speech-to-text engine. Write down exactly what the speaker says in the audio. ${zh ? 'The speaker mostly speaks Chinese (Mandarin), maybe mixed with some English words. Write Chinese in simplified characters.' : 'The speaker is an English learner speaking English, maybe with an accent and mistakes.'} Do NOT correct mistakes, do NOT translate, do NOT add anything. If nobody speaks, return an empty string. Respond ONLY with JSON: {"text": string}`,
@@ -868,8 +920,9 @@ async function aiMic(btn, ta, onDone, opts){
     }
     if(opts && opts.onAudio){
       // Conversation: send the voice straight to the teacher (one trip instead of two).
-      resetMicBtn(btn);
-      try{ opts.onAudio(await prepAudio(blob)); }catch(e){ showErr(e.message); }
+      btn.textContent = '…'; btn.disabled = true;
+      try{ await opts.onAudio(blob); }catch(e){ showErr(e.message); }
+      finally{ btn.disabled = false; if(btn.textContent === '…') resetMicBtn(btn); }
       return;
     }
     btn.textContent = '…'; btn.disabled = true;
@@ -983,7 +1036,7 @@ document.addEventListener('click', e => {
     const v = JSON.parse(b.dataset.v);
     const w = v.word || v.phrase;
     if(!hasWord(w)){
-      words.unshift({word:w, meaning:v.meaning || '', example:v.example || '', translation:v.translation || '', added:today(), known:0});
+      words.unshift({word:w, meaning:v.meaning || '', example:v.example || '', translation:v.translation || '', added:today(), known:0, at:Date.now()});
       store.set('words', words);
     }
     b.classList.add('done'); b.textContent = L('saved','已存');
@@ -996,7 +1049,7 @@ function showTab(name){
   document.querySelectorAll('main section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-' + name));
   $('#talkBar').classList.toggle('hidden', !(name === 'talk' && convo));
   if(name === 'words') renderWords();
-  if(name === 'memory') renderMemory();
+  if(name === 'memory'){ renderMemory(); fillSync(); }
   window.scrollTo(0,0);
 }
 $('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if(b) showTab(b.dataset.tab); });
@@ -1176,9 +1229,18 @@ function paintMicLang(){
   $('#micLang').textContent = micZh ? '🎤 中文' : '🎤 EN';
   $('#micLang').title = micZh ? '现在说中文（问"怎么说"）。点一下换成英文。' : '现在说英文。点一下换成中文。';
 }
-function sendAudio(a){
+async function sendAudio(blob){
   if(repeating){ showErr(L('First say the better version again (🎤 in the purple box), or tap "Skip".', '请先把更好的说法再说一遍（点紫色框里的 🎤），或者点"跳过"。'), $('#chat')); return; }
-  sendTurn('', a);
+  if(groqOn()){
+    // Groq writes down the words (fast, big free allowance), then the teacher replies to the text.
+    let text = null;
+    try{ text = await groqTranscribe(blob, 'en'); }catch(e){ text = null; }
+    if(text !== null){
+      if(!text){ showErr(L("I couldn't make out any words. Please try again.", '没有听清楚。请再说一次。'), $('#chat')); return; }
+      sendTurn(text); return;
+    }
+  }
+  sendTurn('', await prepAudio(blob));   // Gemini listens and replies in one trip
 }
 $('#talkMic').addEventListener('click', () => toggleMic($('#talkMic'), $('#talkIn'), (S.autoSend || S.handsFree) && !micZh ? sendFromBox : null,
   {lang: micZh ? 'zh-CN' : 'en-US', onAudio: (!micZh && !$('#talkIn').value.trim()) ? sendAudio : null}));
@@ -1319,7 +1381,9 @@ function renderWords(){
 }
 $('#wordList').addEventListener('click', e => {
   const b = e.target.closest('[data-del]'); if(!b) return;
-  words.splice(+b.dataset.del, 1); store.set('words', words); renderWords();
+  const gone = words.splice(+b.dataset.del, 1)[0];
+  if(gone){ syncMeta.deletedWords.push({w: gone.word.toLowerCase(), at: Date.now()}); saveSyncMeta(); }
+  store.set('words', words); renderWords();
 });
 let queue = [], cur = null, revealed = false;
 function nextCard(){
@@ -1550,10 +1614,11 @@ $('#forgetAll').addEventListener('click', () => $('#forgetConfirm').classList.re
 $('#forgetNo').addEventListener('click', () => $('#forgetConfirm').classList.add('hidden'));
 $('#forgetYes').addEventListener('click', () => {
   memory = {name:'', facts:[], interests:[], goals:[], mistakes:[], topics:[]}; sessions = [];
+  syncMeta.forgotAt = Date.now(); saveSyncMeta();
   saveMemory(); saveSessions(); $('#forgetConfirm').classList.add('hidden'); renderMemory();
 });
 $('#backupAll').addEventListener('click', () => {
-  const s2 = Object.assign({}, S); delete s2.apiKey; delete s2.backupKey;
+  const s2 = Object.assign({}, S); ['apiKey', 'backupKey', 'syncToken', 'syncGistId'].forEach(k => delete s2[k]);   // never put keys or tokens in a backup file
   const blob = new Blob([JSON.stringify({app:'coffee-break-english', version:1, memory, sessions, words, settings:s2}, null, 2)], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'coffee-english-backup-' + today() + '.json'; a.click();
@@ -1654,10 +1719,18 @@ const STATIC_ZH = [
   ['#tab-memory .card:nth-of-type(3) h2', '备份'],
   ['#tab-memory .card:nth-of-type(3) p.muted', '手机和电脑各自保存自己的记忆。要换设备，可以在一台设备上生成备份文件，再到另一台设备上恢复。备份包括记忆、以前的对话和单词本，但不包括 API 密钥。'],
   ['#backupAll', '生成备份文件'], ['#t-restore', '从备份恢复'], ['#forgetAll', '全部忘掉'],
+  ['#t-syncH', '☁️ 云同步'],
+  ['#t-syncP', '让手机和电脑上的记忆、以前的对话、单词本和老师设置保持一样。所有数据免费保存在你 GitHub 账号里的一个私密 Gist（只有你能看到）中。'],
+  ['#t-syncHowS', '怎么获得 GitHub 令牌（只需一次，在电脑上做）'],
+  ['#t-syncHowOl', '<li>登录 <a href="https://github.com" target="_blank" rel="noopener">github.com</a>，点右上角的头像 → <b>Settings</b>。</li><li>在左边菜单最下面：<b>Developer settings → Personal access tokens → Tokens (classic)</b>。</li><li>点 <b>Generate new token → Generate new token (classic)</b>。Note 写 <i>coffee english</i>，Expiration 选 <i>No expiration</i>，只勾选 <b>gist</b>。</li><li>点 <b>Generate token</b>，复制令牌（以 <b>ghp_</b> 开头）。在每台设备上粘贴到下面。全家可以用同一个令牌，每个人用不同的同步名字。</li>'],
+  ['label[for=syncToken]', 'GitHub 令牌'], ['label[for=syncName]', '同步名字（自己的所有设备填一样的，每个人填不同的）'], ['#syncName', '例如：me、mom、dad', 'placeholder'],
+  ['#t-syncKeys', '同时同步我的 API 密钥（这样新设备只需要填 GitHub 令牌和同步名字）'],
+  ['#syncGo', '连接并马上同步'], ['#syncOff', '关闭同步'],
+  ['#t-welcomeSync', '已经在别的设备上用过、并且开了云同步？去 <b>🧠 记忆 → ☁️ 云同步</b>，填上 GitHub 令牌和同步名字，所有东西都会回来。'],
   ['#forgetConfirm p', `<b>删除 ${PN} 的记忆和这台设备上所有以前的对话吗？</b>单词本会保留。`], ['#forgetYes', '确定忘掉'], ['#forgetNo', '取消'],
   ['#welcome h2', '👋 第一次设置（2 分钟）'],
   ['#welcome ol', '<li>打开 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio → API keys</a>，用 Google 账号登录。</li><li>点 <b>Create API key</b>（创建 API 密钥），然后复制。免费，不需要信用卡。</li><li>粘贴到下面，点 <b>保存并测试</b>。</li>'],
-  ['#welcome p.muted', '密钥只保存在这个浏览器里。使用 Google 免费版时，Google 可能会用你发送的内容来改进产品，所以不要输入私人或敏感信息。'],
+  ['#welcome p.muted:not(#t-welcomeSync)', '密钥只保存在这个浏览器里。使用 Google 免费版时，Google 可能会用你发送的内容来改进产品，所以不要输入私人或敏感信息。'],
   ['#tab-settings .card:nth-of-type(2) h2', '👤 关于我和我的老师'],
   ['#tab-settings .card:nth-of-type(2) p.muted', '每台手机或电脑都有自己的设置，所以家里每个人都可以有自己的老师。'],
   ['label[for=about]', '关于我：我的情况，在哪里用英语'], ['#about', '例如：我刚来美国，帮女儿带孩子。想和邻居、医生、超市的人简单交流。', 'placeholder'],
@@ -1667,7 +1740,7 @@ const STATIC_ZH = [
   ['#persona option[value=friend]', '有趣的朋友（爱开玩笑，很多俚语）'], ['#persona option[value=british]', '友好的英国同事（英式英语）'], ['#persona option[value=mentor]', '有思想的导师（深入聊天，词汇更丰富）'],
   ['#saveAbout', '保存'],
   ['label[for=apiKey]', 'Gemini API 密钥'], ['#apiKey', '把密钥粘贴到这里', 'placeholder'], ['#saveKey', '保存并测试'],
-  ['label[for=model]', 'AI 模型'], ['#model + p.muted', '测试密钥后会自动选择。"flash" 模型速度快，免费额度也多。'],
+  ['label[for=model]', 'AI 模型'], ['#model + p.muted', '测试密钥后会自动选择。"Flash-Lite" 模型速度快，每天的免费次数最多（其他模型可能每天只有 20 次左右）。'],
   ['label[for=level]', '我的英语水平'],
   ['#level option[value=Beginner]', '入门'], ['#level option[value=Intermediate]', '中级'], ['#level option[value=Upper-intermediate]', '中高级'], ['#level option[value=Advanced]', '高级'],
   ['label[for=native]', '我的母语（可选）'], ['#native', '例如：中文', 'placeholder'],
@@ -1679,7 +1752,7 @@ const STATIC_ZH = [
   ['#sttHelp', '如果手机上的 🎤 不能用，选"AI 录音识别"：应用会把你的声音录下来，AI 会把你说的话写成文字。'],
   ['#micTest', '🎤 测试麦克风'],
   ['#tab-settings .card:nth-of-type(4) h2', '备用 AI（可选）'],
-  ['#tab-settings .card:nth-of-type(4) > p.muted', 'Gemini 忙的时候，应用会先自动重试并换别的模型。如果还是经常显示"忙"，可以在这里加一个免费的备用服务。只有 Gemini 不能用时才会用它。'],
+  ['#tab-settings .card:nth-of-type(4) > p.muted', '推荐：加上 <b>Groq</b>（免费）。它能很快地把你的声音变成文字，免费额度很大；Gemini 忙或者免费次数用完时，老师也会通过 Groq 继续回答。'],
   ['label[for=backup]', '备用服务'], ['label[for=backupKey]', '备用 API 密钥'], ['label[for=backupModel]', '备用模型'], ['#testBackup', '保存并测试'],
   ['#tab-settings .card:nth-of-type(5) h2', '提示'],
   ['#tab-settings .card:nth-of-type(5) p.muted:not(#verLine)', '• 电脑上用 <b>Chrome</b> 或 <b>Edge</b>，安卓手机用 <b>Chrome</b>，苹果手机用 <b>Safari</b>。<br>• 在手机上，打开浏览器菜单，点 <b>添加到主屏幕</b>，就能像应用一样打开。<br>• 如果 🎤 不能用，点地址栏左边的图标，允许使用麦克风。<br>• 如果看到"免费额度"的提示，等一分钟再试；免费版每分钟和每天的次数有限制。'],
@@ -1721,6 +1794,172 @@ $('#saveAbout').addEventListener('click', () => {
   setTimeout(() => $('#aboutMsg').textContent = '', 4000);
 });
 
+/* ---------- CLOUD SYNC (a private GitHub Gist) ---------- */
+var syncReady = false, mergingNow = false, syncing = false, syncTimer = null, lastPrefsHash = '';
+var syncMeta = Object.assign({memoryAt:0, prefsAt:0, forgotAt:0, deletedWords:[]}, (() => { try{ return JSON.parse(localStorage.getItem('cbe_syncMeta') || '{}'); }catch(e){ return {}; } })());
+function saveSyncMeta(){ try{ localStorage.setItem('cbe_syncMeta', JSON.stringify(syncMeta)); }catch(e){} }
+const GIST_DESC = 'Coffee Break English sync';
+const SYNC_PREF_KEYS = ['about','goals','pname','persona','level','lang','native','memoryOn','repeatMode','autoSpeak','autoSend','rate','sttMode','handsFree'];
+const prefsHash = () => JSON.stringify(SYNC_PREF_KEYS.map(k => S[k]));
+function onStoreSet(k){
+  if(!syncReady || mergingNow) return;
+  if(k === 'memory'){ syncMeta.memoryAt = Date.now(); saveSyncMeta(); }
+  if(k === 'settings'){
+    const h = prefsHash();
+    if(h !== lastPrefsHash){ lastPrefsHash = h; syncMeta.prefsAt = Date.now(); saveSyncMeta(); }
+    else if(!S.syncKeys) return;
+  }
+  if(['memory','sessions','words','settings'].includes(k)) scheduleSync();
+}
+function scheduleSync(){ if(!S.syncToken) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(false), 4000); }
+function syncFile(){ return 'coffee-english-' + String(S.syncName || 'me').trim().toLowerCase().replace(/[^a-z0-9一-鿿_-]+/g, '-') + '.json'; }
+async function gh(path, opt){
+  opt = opt || {};
+  let res;
+  try{
+    res = await fetch('https://api.github.com' + path, Object.assign({}, opt, {headers: Object.assign({'Accept':'application/vnd.github+json', 'Authorization':'Bearer ' + S.syncToken}, opt.body ? {'Content-Type':'application/json'} : {})}));
+  }catch(e){ throw new Error(L('Could not reach GitHub. Check the internet connection.', '连不上 GitHub，请检查网络。')); }
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok){
+    if(res.status === 401) throw new Error(L('The GitHub token is not valid. Check that you copied all of it.', 'GitHub 令牌无效。请检查是否完整复制。'));
+    if(res.status === 403 || res.status === 404) throw new Error(L('The GitHub token needs the "gist" permission.', 'GitHub 令牌需要勾选 "gist" 权限。'));
+    throw new Error('GitHub: ' + (data.message || res.statusText));
+  }
+  return data;
+}
+async function findGist(){
+  if(S.syncGistId) return S.syncGistId;
+  for(let page = 1; page <= 5; page++){
+    const list = await gh(`/gists?per_page=100&page=${page}`);
+    const g = list.find(x => x.description === GIST_DESC);
+    if(g){ S.syncGistId = g.id; store.set('settings', S); return g.id; }
+    if(list.length < 100) break;
+  }
+  const g = await gh('/gists', {method:'POST', body: JSON.stringify({description: GIST_DESC, public: false, files: {'README.md': {content: 'Data for the Coffee Break English app. Please do not edit these files by hand.'}}})});
+  S.syncGistId = g.id; store.set('settings', S); return g.id;
+}
+function localBundle(){
+  const prefs = {}; SYNC_PREF_KEYS.forEach(k => prefs[k] = S[k]);
+  const b = {app:'coffee-break-english', v:1, memory, memoryAt: syncMeta.memoryAt, sessions, words, deletedWords: syncMeta.deletedWords, forgotAt: syncMeta.forgotAt, prefs, prefsAt: syncMeta.prefsAt};
+  if(S.syncKeys) b.keys = {apiKey: S.apiKey, model: S.model, models: S.models, backup: S.backup, backupKey: S.backupKey, backupModel: S.backupModel};
+  return b;
+}
+const sessTime = s => { const t = parseInt(s.id, 36); return isNaN(t) ? 0 : t; };
+function mergeBundle(r){
+  if(!r || r.app !== 'coffee-break-english') return;
+  // "Forget everything" on any device
+  syncMeta.forgotAt = Math.max(syncMeta.forgotAt || 0, r.forgotAt || 0);
+  // memory: the newer copy wins
+  if((r.memoryAt || 0) > (syncMeta.memoryAt || 0) && r.memory){
+    memory = Object.assign({name:'', facts:[], interests:[], goals:[], mistakes:[], topics:[]}, r.memory);
+    syncMeta.memoryAt = r.memoryAt;
+  }
+  // conversations: keep both sides
+  const byId = {};
+  sessions.concat(r.sessions || []).forEach(x => {
+    if(!x || !x.id) return;
+    const cur = byId[x.id];
+    if(!cur || (x.turns || []).length > (cur.turns || []).length || ((x.turns || []).length === (cur.turns || []).length && (x.memDone || 0) > (cur.memDone || 0))) byId[x.id] = x;
+  });
+  sessions = Object.values(byId).filter(x => sessTime(x) > (syncMeta.forgotAt || 0)).sort((a, b) => sessTime(b) - sessTime(a)).slice(0, 40);
+  // words: keep both sides, apply deletions, keep the best progress
+  const tomb = {};
+  (syncMeta.deletedWords || []).concat(r.deletedWords || []).forEach(t => { if(t && t.w && (!tomb[t.w] || t.at > tomb[t.w])) tomb[t.w] = t.at; });
+  syncMeta.deletedWords = Object.entries(tomb).map(([w, at]) => ({w, at})).slice(-500);
+  const wmap = {};
+  words.concat(r.words || []).forEach(x => {
+    if(!x || !x.word) return;
+    const k = x.word.toLowerCase();
+    if(tomb[k] && tomb[k] >= (x.at || 0)) return;
+    const cur = wmap[k];
+    if(!cur) wmap[k] = Object.assign({}, x);
+    else{ cur.known = Math.max(cur.known || 0, x.known || 0); cur.at = Math.max(cur.at || 0, x.at || 0); }
+  });
+  words = Object.values(wmap).sort((a, b) => (b.at || 0) - (a.at || 0));
+  // teacher and app settings: the newer copy wins
+  if((r.prefsAt || 0) > (syncMeta.prefsAt || 0) && r.prefs){
+    SYNC_PREF_KEYS.forEach(k => { if(k in r.prefs) S[k] = r.prefs[k]; });
+    syncMeta.prefsAt = r.prefsAt;
+  }
+  // API keys: only filled in where this device has none yet
+  if(r.keys){
+    if(!S.apiKey && r.keys.apiKey){ S.apiKey = r.keys.apiKey; S.model = r.keys.model || S.model; S.models = r.keys.models || S.models; }
+    if((!S.backupKey || S.backup === 'none') && r.keys.backupKey){ S.backup = r.keys.backup; S.backupKey = r.keys.backupKey; S.backupModel = r.keys.backupModel; }
+  }
+}
+function syncStatus(msg){ const el = $('#syncStatus'); if(el) el.textContent = msg; }
+function syncTimeText(){
+  if(!S.syncLast) return '';
+  const d = new Date(S.syncLast);
+  return L('Last synced: ', '上次同步：') + d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+async function syncNow(manual){
+  if(!S.syncToken || syncing) return;
+  syncing = true;
+  syncStatus(L('Syncing…', '正在同步…'));
+  const before = JSON.stringify([memory, sessions, words, prefsHash(), S.apiKey, S.backupKey]);
+  try{
+    const id = await findGist();
+    const g = await gh('/gists/' + id);
+    const f = g.files && g.files[syncFile()];
+    let remote = null;
+    if(f){
+      try{ remote = f.truncated ? await (await fetch(f.raw_url)).json() : JSON.parse(f.content); }catch(e){ remote = null; }
+    }
+    mergingNow = true;
+    mergeBundle(remote);
+    store.set('memory', memory); store.set('sessions', sessions); store.set('words', words); store.set('settings', S);
+    mergingNow = false;
+    saveSyncMeta();
+    lastPrefsHash = prefsHash();
+    const local = localBundle();
+    if(!remote || JSON.stringify(local) !== JSON.stringify(Object.assign({}, remote, {keys: S.syncKeys ? remote.keys : undefined}))){
+      await gh('/gists/' + id, {method:'PATCH', body: JSON.stringify({files: {[syncFile()]: {content: JSON.stringify(local)}}})});
+    }
+    S.syncLast = Date.now(); mergingNow = true; store.set('settings', S); mergingNow = false;
+    if(before !== JSON.stringify([memory, sessions, words, prefsHash(), S.apiKey, S.backupKey])){
+      // Something new arrived from another device: refresh the screens.
+      fillSettings(); fillAbout(); fillBackup(); applyLang(); paintName();
+      if(!$('#tab-words').classList.contains('hidden')) renderWords();
+      if(!$('#tab-memory').classList.contains('hidden')) renderMemory();
+      if(S.apiKey) $('#welcome').classList.add('hidden');
+      if(manual) note(L('✓ Synced. Data from your other devices is here now.', '✓ 同步好了，其他设备上的数据已经过来了。'));
+    }
+    syncStatus('✓ ' + syncTimeText());
+  }catch(e){
+    mergingNow = false;
+    syncStatus('✗ ' + e.message);
+    if(manual) showErr(e.message);
+  }finally{ syncing = false; }
+}
+function fillSync(){
+  $('#syncToken').value = S.syncToken || '';
+  $('#syncName').value = S.syncName || '';
+  $('#syncKeys').checked = S.syncKeys !== false;
+  syncStatus(S.syncToken ? '✓ ' + (syncTimeText() || L('Connected', '已连接')) : L('Not connected.', '还没有连接。'));
+}
+$('#syncGo').addEventListener('click', () => {
+  const tok = $('#syncToken').value.trim();
+  const name = $('#syncName').value.trim();
+  if(!tok){ syncStatus(L('Paste your GitHub token first.', '请先粘贴 GitHub 令牌。')); return; }
+  if(!name){ syncStatus(L('Choose a sync name, e.g. "me" or "mom".', '请填一个同步名字，比如 "me" 或 "mom"。')); return; }
+  if(tok !== S.syncToken) S.syncGistId = '';
+  S.syncToken = tok; S.syncName = name; S.syncKeys = $('#syncKeys').checked;
+  mergingNow = true; store.set('settings', S); mergingNow = false;
+  syncNow(true);
+});
+$('#syncKeys').addEventListener('change', () => { S.syncKeys = $('#syncKeys').checked; store.set('settings', S); });
+$('#syncOff').addEventListener('click', () => {
+  S.syncToken = ''; S.syncGistId = ''; S.syncLast = 0;
+  mergingNow = true; store.set('settings', S); mergingNow = false;
+  fillSync();
+});
+document.addEventListener('visibilitychange', () => {
+  if(!S.syncToken) return;
+  if(document.visibilityState === 'visible') syncNow(false);          // pick up changes from other devices
+  else if(syncTimer){ clearTimeout(syncTimer); syncNow(false); }       // send pending changes before leaving
+});
+
 /* ---------- init ---------- */
 renderScenarios();
 fillSettings();
@@ -1732,7 +1971,20 @@ applyLang();
 loadVoices();
 if('speechSynthesis' in window) speechSynthesis.onvoiceschanged = loadVoices;
 if(!S.apiKey) showTab('settings');
+if(S.models && S.models.length && !S.liteMigrated){
+  const lite = S.models.find(m => /flash-lite/.test(m) && !/preview|exp/.test(m)) || S.models.find(m => /flash-lite/.test(m));
+  if(lite && !/flash-lite/.test(S.model || '')){ S.model = lite; fillSettings(); }
+  S.liteMigrated = true; store.set('settings', S);
+}
 catchUpMemory();
+fillSync();
+// Data that existed before sync was turned on counts as "older than any real change" but newer than an empty new device.
+if(!syncMeta.memoryAt && (memory.name || memory.facts.length || memory.interests.length || memory.goals.length || memory.mistakes.length || memory.topics.length)) syncMeta.memoryAt = 1;
+if(!syncMeta.prefsAt && S.apiKey) syncMeta.prefsAt = 1;
+saveSyncMeta();
+lastPrefsHash = prefsHash();
+syncReady = true;
+if(S.syncToken) setTimeout(() => syncNow(false), 800);
 </script>
 </body>
 </html>
