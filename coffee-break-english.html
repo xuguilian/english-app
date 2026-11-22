@@ -33,7 +33,7 @@
   label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
   input[type=text],input[type=password],select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:16px;background:#fff;color:var(--ink)}
   textarea{resize:vertical;min-height:70px}
-  .btn{border:0;background:var(--accent);color:#fff;padding:10px 16px;border-radius:10px;font:inherit;font-weight:600;cursor:pointer}
+  .btn{white-space:nowrap;border:0;background:var(--accent);color:#fff;padding:10px 16px;border-radius:10px;font:inherit;font-weight:600;cursor:pointer}
   .btn:disabled{opacity:.5;cursor:default}
   .btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
   .btn.small{padding:5px 10px;font-size:13px}
@@ -92,6 +92,9 @@
   .sess{border-top:1px solid var(--line);padding:10px 0}
   .sess summary{cursor:pointer;font-weight:600}
   .sess .line{font-size:14px;margin:4px 0}
+  .zh{font-size:14px;color:var(--muted);margin-top:4px;border-top:1px dashed var(--line);padding-top:4px}
+  .big{font-size:20px;font-weight:700}
+  .tag.basic{background:#fff4d6;color:#8a6200}
   .note{background:var(--accent-soft);color:var(--accent);border-radius:10px;padding:8px 12px;margin:8px 0;font-size:13px}
   .err{background:#fdecea;color:#8a1f11;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px}
   .muted{color:var(--muted);font-size:13px}
@@ -113,13 +116,15 @@
   <div class="wrap">
     <div class="top">
       <div class="logo">☕</div>
-      <div>
+      <div style="flex:1">
         <h1>Coffee Break English</h1>
-        <div class="sub">Practice the talk that happens outside the lab</div>
+        <div class="sub">Practice the English you hear every day</div>
       </div>
+      <button class="btn ghost small" id="langBtn" title="Language / 语言">中文</button>
     </div>
     <nav id="nav">
       <button data-tab="talk" class="active">💬 Talk</button>
+      <button data-tab="howto">🗣️ How do I say…?</button>
       <button data-tab="organize">🧩 Say it better</button>
       <button data-tab="decode">🔍 What did they mean?</button>
       <button data-tab="words">📒 Word bank</button>
@@ -136,7 +141,7 @@
     <div id="pick">
       <div class="card">
         <h2>Pick a conversation</h2>
-        <p class="muted">🎯 <b>Speaking drills</b>: Alex asks a question, you answer, Alex corrects you, and you say the better version again.<br>Your partner, Alex, is a friendly coworker. Speak with the 🎤 button or type. After each thing you say, you'll see a corrected version and how a native speaker would say it.</p>
+        <p class="muted">🎯 <b>Speaking drills</b>: <span class="pn">Alex</span> asks a question, you answer, <span class="pn">Alex</span> corrects you, and you say the better version again.<br>Your conversation partner is <span class="pn">Alex</span> (you can change this in ⚙️ Settings). Speak with the 🎤 button or type. After each thing you say, you'll see a corrected version and how a native speaker would say it.</p>
       </div>
       <div class="grid" id="scenarios"></div>
       <div class="card" style="margin-top:14px">
@@ -160,6 +165,20 @@
       <div class="chat" id="chat"></div>
       <div id="hints" class="hints"></div>
     </div>
+  </section>
+
+  <!-- HOW DO I SAY -->
+  <section id="tab-howto" class="hidden">
+    <div class="card">
+      <h2>🗣️ How do I say…?</h2>
+      <p class="muted">Type or say what you want to say, in your own language or in broken English. You'll get the natural English, the key words, pronunciation tips and a short example dialogue, and then you can practise saying it.</p>
+      <textarea id="howIn" placeholder="e.g. 我想把这件衣服退了 / How to say I want to return this shirt?"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="mic" id="howMic" title="Speak">🎤</button>
+        <button class="btn" id="howGo">Teach me</button>
+      </div>
+    </div>
+    <div id="howOut"></div>
   </section>
 
   <!-- ORGANIZE -->
@@ -199,7 +218,7 @@
         <div class="row">
           <button class="btn small" id="reviewBtn">Review cards</button>
           <button class="btn ghost small" id="exportBtn">Export</button>
-          <label class="btn ghost small" style="margin:0;font-weight:600">Import<input type="file" id="importFile" accept=".json" class="hidden"></label>
+          <label class="btn ghost small" style="margin:0;font-weight:600"><span id="t-import">Import</span><input type="file" id="importFile" accept=".json" class="hidden"></label>
         </div>
       </div>
       <p class="muted">Words and phrases you save during practice show up here. Review a few every day; that's how they stick.</p>
@@ -217,15 +236,15 @@
   <!-- SETTINGS -->
   <section id="tab-memory" class="hidden">
     <div class="card">
-      <h2>🧠 What Alex remembers about you</h2>
-      <p class="muted">After your conversations, Alex writes short notes about you, and he reads them before every new conversation. You can change or delete anything here. The notes are saved only in this browser, on this device, and are sent to the AI along with your conversations.</p>
-      <label class="row" style="font-weight:400"><input type="checkbox" id="memoryOn" checked> Let Alex remember me</label>
+      <h2>🧠 What <span class="pn">Alex</span> remembers about you</h2>
+      <p class="muted">After your conversations, <span class="pn">Alex</span> writes short notes about you and reads them before every new conversation. You can change or delete anything here. The notes are saved only in this browser, on this device, and are sent to the AI along with your conversations.</p>
+      <label class="row" style="font-weight:400"><input type="checkbox" id="memoryOn" checked> <span id="t-memoryOn">Let <span class="pn">Alex</span> remember me</span></label>
       <label for="memName">Your name</label>
-      <input type="text" id="memName" placeholder="What should Alex call you?">
+      <input type="text" id="memName" placeholder="What should your teacher call you?">
       <div id="memLists"></div>
-      <label for="memAdd">Tell Alex something about you</label>
+      <label for="memAdd">Tell <span class="pn">Alex</span> something about you</label>
       <div class="row">
-        <input type="text" id="memAdd" placeholder="e.g. I work in a neuroscience lab. I have a cat called Mochi." style="flex:1">
+        <input type="text" id="memAdd" placeholder="e.g. I have a cat called Mochi. I'm from Shanghai." style="flex:1">
         <button class="btn small" id="memAddBtn">Add</button>
       </div>
       <div id="memStatus" class="muted" style="margin-top:8px"></div>
@@ -239,11 +258,11 @@
       <p class="muted">Your phone and computer each keep their own memory. To move it, make a backup file on one device and restore it on the other. Backups include your memory, past conversations and word bank, but never your API keys.</p>
       <div class="row">
         <button class="btn small" id="backupAll">Make a backup file</button>
-        <label class="btn ghost small" style="margin:0;font-weight:600">Restore from backup<input type="file" id="restoreAll" accept=".json" class="hidden"></label>
+        <label class="btn ghost small" style="margin:0;font-weight:600"><span id="t-restore">Restore from backup</span><input type="file" id="restoreAll" accept=".json" class="hidden"></label>
         <button class="btn ghost small" id="forgetAll" style="color:#c0392b;border-color:#c0392b">Forget everything</button>
       </div>
       <div id="forgetConfirm" class="hidden" style="margin-top:10px">
-        <p><b>Delete Alex's memory and all past conversations on this device?</b> Your word bank stays.</p>
+        <p><b>Delete <span class="pn">Alex</span>'s memory and all past conversations on this device?</b> Your word bank stays.</p>
         <div class="row"><button class="btn small warm" id="forgetYes">Yes, forget</button><button class="btn ghost small" id="forgetNo">Cancel</button></div>
       </div>
     </div>
@@ -260,6 +279,25 @@
       <p class="muted">Your key stays in this browser only. On Google's free tier, Google may use what you send to improve its products, so don't type private or sensitive information.</p>
     </div>
     <div class="card">
+      <h2>👤 About me and my teacher</h2>
+      <p class="muted">Each phone or computer has its own settings, so everyone in the family can have their own teacher.</p>
+      <label for="about">About me: my work and where I use English</label>
+      <textarea id="about" placeholder="e.g. I'm a software engineer at a big company. I'm fine in meetings, but I get lost when coworkers chat about sports and TV."></textarea>
+      <label for="goalsIn">What I want to practise</label>
+      <textarea id="goalsIn" placeholder="e.g. Small talk with coworkers, talking about my kids' school, sounding more natural."></textarea>
+      <label for="pname">My teacher's name</label>
+      <input type="text" id="pname" placeholder="Alex">
+      <label for="persona">My teacher's style</label>
+      <select id="persona">
+        <option value="coworker">Friendly American coworker (casual, everyday slang)</option>
+        <option value="teacher">Patient teacher (clear, explains more)</option>
+        <option value="friend">Fun friend (jokes, lots of slang)</option>
+        <option value="british">Friendly British colleague (British English)</option>
+        <option value="mentor">Thoughtful mentor (deeper talks, richer vocabulary)</option>
+      </select>
+      <div class="row" style="margin-top:12px"><button class="btn" id="saveAbout">Save</button><span id="aboutMsg" class="muted"></span></div>
+    </div>
+    <div class="card">
       <label for="apiKey">Gemini API key</label>
       <div class="row">
         <input type="password" id="apiKey" placeholder="Paste your key here" style="flex:1">
@@ -273,23 +311,24 @@
 
       <label for="level">My English level</label>
       <select id="level">
-        <option>Intermediate</option>
-        <option selected>Upper-intermediate</option>
-        <option>Advanced</option>
+        <option value="Beginner">Beginner</option>
+        <option value="Intermediate">Intermediate</option>
+        <option value="Upper-intermediate" selected>Upper-intermediate</option>
+        <option value="Advanced">Advanced</option>
       </select>
 
       <label for="native">My native language (optional, for translations of new words)</label>
       <input type="text" id="native" placeholder="e.g. Chinese, Spanish, Korean...">
 
-      <label for="voice">Alex's voice</label>
+      <label for="voice"><span class="pn">Alex</span>'s voice</label>
       <select id="voice"></select>
 
       <label for="rate">Speaking speed: <span id="rateVal">1.0</span></label>
       <input type="range" id="rate" min="0.6" max="1.3" step="0.05" value="1" style="width:100%">
 
-      <label class="row" style="font-weight:400"><input type="checkbox" id="autoSpeak" checked> Read Alex's replies out loud automatically</label>
-      <label class="row" style="font-weight:400"><input type="checkbox" id="autoSend"> Send automatically when I stop speaking</label>
-      <label class="row" style="font-weight:400"><input type="checkbox" id="repeatMode" checked> In 🎯 speaking drills, ask me to say the better version again</label>
+      <label class="row" style="font-weight:400"><input type="checkbox" id="autoSpeak" checked> <span id="t-autoSpeak">Read <span class="pn">Alex</span>'s replies out loud automatically</span></label>
+      <label class="row" style="font-weight:400"><input type="checkbox" id="autoSend"> <span id="t-autoSend">Send automatically when I stop speaking</span></label>
+      <label class="row" style="font-weight:400"><input type="checkbox" id="repeatMode" checked> <span id="t-repeatMode">In 🎯 speaking drills, ask me to say the better version again</span></label>
 
       <div class="row" style="margin-top:12px"><button class="btn" id="saveSettings">Save settings</button><span id="setMsg" class="muted"></span></div>
     </div>
@@ -327,6 +366,7 @@
 <div class="bar hidden" id="talkBar">
   <div class="wrap">
     <button class="mic" id="talkMic" title="Speak">🎤</button>
+    <button class="btn ghost small hidden" id="micLang" title="Microphone language">EN</button>
     <textarea id="talkIn" placeholder="Speak or type your answer…"></textarea>
     <button class="btn" id="sendBtn">Send</button>
   </div>
@@ -341,7 +381,31 @@ const store = {
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let S = Object.assign({apiKey:'', model:'gemini-2.5-flash', level:'Upper-intermediate', native:'', voice:'', rate:1, autoSpeak:true, autoSend:false, repeatMode:true, handsFree:false, memoryOn:true, models:null, backup:'none', backupKey:'', backupModel:''}, store.get('settings', {}));
+let S = Object.assign({apiKey:'', model:'gemini-2.5-flash', level:'Upper-intermediate', native:'', voice:'', rate:1, autoSpeak:true, autoSend:false, repeatMode:true, handsFree:false, memoryOn:true, lang:'en', pname:'Alex', persona:'coworker', goals:'', models:null, backup:'none', backupKey:'', backupModel:''}, store.get('settings', {}));
+// The first person (who set up this app) works in a lab; keep her description. New users start blank.
+if(S.about === undefined){
+  S.about = S.apiKey ? "I work in a science lab. I'm fine with technical lab English, but I struggle to follow casual talk between coworkers (idioms, slang, phrasal verbs, cultural references). I'd also like to discuss abstract topics such as philosophy, but I lack the vocabulary and don't know how to organize my thoughts." : '';
+  if(S.apiKey && !S.goals) S.goals = 'Everyday small talk with coworkers, professional speaking, philosophy-style conversations, and more vocabulary.';
+  store.set('settings', S);
+}
+const L = (en, zh) => S.lang === 'zh' ? zh : en;
+const isCJK = t => /[㐀-鿿]/.test(t || '');
+const PASS = () => S.level === 'Beginner' ? 0.7 : 0.8;
+function LANG_NOTE(){
+  return S.lang === 'zh' ? '\nIMPORTANT: write every explanation, meaning, translation, "why", tip and summary field in Simplified Chinese (简体中文). Keep English example sentences and anything the learner should SAY in English.' : '';
+}
+function BEGINNER_NOTE(){
+  return S.level === 'Beginner' ? '\nThe learner is a BEGINNER: use only very common, simple words and short sentences.' : '';
+}
+const PNAME = () => (S.pname || '').trim() || 'Alex';
+const PERSONAS = {
+  coworker: 'a friendly American coworker who talks casually and uses everyday idioms and slang',
+  teacher: 'a patient, encouraging English teacher who speaks clearly, uses slightly simpler language and explains a little more',
+  friend: 'a fun, easygoing American friend who jokes around and uses lots of casual slang',
+  british: 'a friendly British colleague who uses natural British English, expressions and spelling',
+  mentor: 'a thoughtful, well-read mentor who enjoys deeper conversations and uses richer vocabulary'
+};
+function paintName(){ document.querySelectorAll('.pn').forEach(e => e.textContent = PNAME()); }
 let words = store.get('words', []);
 let memory = Object.assign({name:'', facts:[], interests:[], goals:[], mistakes:[], topics:[]}, store.get('memory', {}));
 let sessions = store.get('sessions', []);   // [{id, title, date, turns:[{who, text, fb}], memDone}]
@@ -351,50 +415,66 @@ function saveSessions(){ if(sessions.length > 40) sessions = sessions.slice(0, 4
 
 /* ---------- scenarios ---------- */
 const SCENARIOS = [
-  {id:'drill-daily', tag:'drill', t:'🎯 Q&A drill: everyday life', d:'Alex asks, you answer, then say the better version.', p:'Run a question-and-answer speaking drill. Ask the learner ONE clear question at a time about everyday life (food, weekends, hometown, hobbies, habits, small opinions). After each answer, react in one short natural sentence, then ask the next question. Vary the questions and sometimes ask a natural follow-up to get a longer answer.'},
-  {id:'drill-work', tag:'drill', t:'🎯 Q&A drill: work small talk', d:'Questions coworkers really ask you.', p:'Run a question-and-answer speaking drill with questions coworkers really ask each other outside the lab, like "How long have you been here?", "Any plans for the holidays?", "How is the project going?", "Did you catch the game?". Ask ONE question at a time, react briefly to each answer, then ask the next.'},
+  {id:'b-hello', tag:'basic', t:'👋 Hello! Meeting someone new', zt:'👋 你好！认识新朋友', d:'Greetings, your name, where you are from, family.', zd:'打招呼、介绍名字、从哪里来、家人。', p:'A very easy first meeting with a friendly neighbour. Practise greetings, introducing yourself, where you are from, family and simple likes. Ask one easy question at a time.'},
+  {id:'b-shop', tag:'basic', t:'🛒 Shopping & the supermarket', zt:'🛒 超市购物', d:'Finding things, prices, paying, returns.', zd:'找东西、问价钱、付款、退换货。', p:'A friendly supermarket or store worker helps the learner. Practise asking where things are, prices, sizes, paying, bags and returns, with very simple English.'},
+  {id:'b-food', tag:'basic', t:'🍜 Ordering food', zt:'🍜 点餐', d:'Restaurant or coffee shop: order, ask, pay.', zd:'在餐厅或咖啡店点餐、提问、付款。', p:'A friendly server at a restaurant or coffee shop. Practise ordering food and drinks, asking simple questions about the menu, and paying, with very simple English.'},
+  {id:'b-doctor', tag:'basic', t:'🏥 At the doctor', zt:'🏥 看医生', d:'Say how you feel, where it hurts, make appointments.', zd:'说哪里不舒服、预约、听懂医生的话。', p:'A kind doctor or clinic receptionist. Practise making an appointment, saying how you feel and where it hurts, and understanding simple instructions. Use very simple English.'},
+  {id:'b-neighbor', tag:'basic', t:'🏡 Chatting with neighbours', zt:'🏡 和邻居聊天', d:'Weather, the garden, kids, weekend plans.', zd:'聊天气、花园、孩子、周末安排。', p:'A friendly neighbour chats outside the house. Talk about the weather, the garden, children and grandchildren, and weekend plans, with very simple English.'},
+  {id:'drill-basic', tag:'drill', t:'🎯 Q&A drill: simple questions', zt:'🎯 问答练习：简单问题', d:'Easy everyday questions; say the better version.', zd:'简单的日常问题，回答后再说一遍更好的说法。', p:'Run a very easy question-and-answer speaking drill for a beginner. Ask ONE short, simple question at a time about daily life (family, food, weather, hobbies, the day). React with a few simple words, then ask the next question.'},
+  {id:'drill-daily', tag:'drill', t:'🎯 Q&A drill: everyday life', d:'Your teacher asks, you answer, then you say the better version.', p:'Run a question-and-answer speaking drill. Ask the learner ONE clear question at a time about everyday life (food, weekends, hometown, hobbies, habits, small opinions). After each answer, react in one short natural sentence, then ask the next question. Vary the questions and sometimes ask a natural follow-up to get a longer answer.'},
+  {id:'drill-work', tag:'drill', t:'🎯 Q&A drill: work small talk', d:'Questions coworkers really ask you.', p:'Run a question-and-answer speaking drill with questions coworkers really ask each other at work (fitted to the learner\'s job), like "How long have you been here?", "Any plans for the holidays?", "How is the project going?", "Did you catch the game?". Ask ONE question at a time, react briefly to each answer, then ask the next.'},
   {id:'drill-deep', tag:'drill', t:'🎯 Q&A drill: deep questions', d:'Philosophy-style questions; give a reason and an example.', p:'Run a question-and-answer speaking drill with thought-provoking questions (e.g. Is it ever okay to lie? Would you want to live forever? What makes you the same person over time? Can science answer every question?). Ask ONE question at a time. After each answer, briefly react, encourage the learner to give a reason and an example, introduce one useful term if it fits, then ask the next question.'},
   {id:'coffee', tag:'daily', t:'☕ Coffee machine chat', d:'How\'s your week going? Being tired, Mondays, coffee.', p:'Casual chat at the office coffee machine. Talk about everyday things: how the week is going, being tired or busy, coffee, small complaints, plans for later. Use very typical small-talk expressions.'},
   {id:'lunch', tag:'daily', t:'🥪 Lunch with coworkers', d:'Food, restaurants, TV shows, funny stories.', p:'Lunch in the break room with coworkers. Talk about food, restaurants, TV shows, funny stories and everyday life, with typical lunch-table banter and jokes. Occasionally mention a common cultural reference and briefly explain it if the learner seems lost.'},
   {id:'weekend', tag:'daily', t:'🏖️ "How was your weekend?"', d:'Monday small talk: plans, hobbies, family, trips.', p:'Monday morning at work. Ask about the learner\'s weekend, share yours, talk about hobbies, family, trips and plans. Teach the learner how to give more than one-word answers and ask follow-up questions.'},
   {id:'news', tag:'daily', t:'📺 Sports, news & pop culture', d:'What coworkers chat about: games, movies, trends.', p:'Casual chat about things American coworkers often talk about: sports (football, basketball, baseball), movies and streaming shows, viral trends, holidays, and light news. Keep it friendly, avoid heated politics, and explain references briefly.'},
-  {id:'meeting', tag:'pro', t:'🧪 Lab meeting talk', d:'Share results, agree/disagree politely, ask questions.', p:'A lab group meeting. The learner presents progress, and you act as a colleague who asks questions, pushes back politely and suggests ideas. Focus on professional phrases for presenting, hedging, agreeing and disagreeing politely, and asking for clarification.'},
-  {id:'chat-boss', tag:'pro', t:'🤝 Chatting with your PI / boss', d:'Ask for help, give updates, handle feedback.', p:'A one-on-one talk with the learner\'s PI or manager. Practice giving a quick update, asking for help or resources, responding to feedback, and light small talk at the start and end.'},
+  {id:'meeting', tag:'pro', t:'🧪 Team meeting talk', d:'Share updates, agree/disagree politely, ask questions.', p:'A team meeting at the learner\'s workplace (a lab group meeting if they work in a lab). The learner presents progress, and you act as a colleague who asks questions, pushes back politely and suggests ideas. Focus on professional phrases for presenting, hedging, agreeing and disagreeing politely, and asking for clarification.'},
+  {id:'chat-boss', tag:'pro', t:'🤝 Chatting with your boss', d:'Ask for help, give updates, handle feedback.', p:'A one-on-one talk with the learner\'s PI or manager. Practice giving a quick update, asking for help or resources, responding to feedback, and light small talk at the start and end.'},
   {id:'freewill', tag:'deep', t:'🤔 Philosophy: Do we have free will?', d:'Determinism, choice, responsibility.', p:'A thoughtful coworker who loves philosophy chats over coffee about free will. Bring in key ideas and terms (determinism, compatibilism, moral responsibility, the Libet experiments) one at a time, in plain words. Ask for the learner\'s opinion and help them build an argument.'},
   {id:'goodlife', tag:'deep', t:'🌱 Philosophy: What is a good life?', d:'Happiness, meaning, Stoicism, ethics.', p:'A relaxed philosophical conversation about what makes a good life: happiness vs. meaning, Stoicism, Aristotle\'s idea of flourishing (eudaimonia), work-life balance. Introduce key terms naturally and invite the learner\'s personal views.'},
   {id:'sciethics', tag:'deep', t:'🧬 Science & ethics', d:'AI, gene editing, the ethics of research.', p:'A deep but friendly conversation about ethics in science and technology: AI, gene editing, animal research, who science should serve. Introduce useful vocabulary for debating (trade-off, slippery slope, the greater good) and help the learner express nuanced opinions.'},
   {id:'mind', tag:'deep', t:'🧠 Mind & consciousness', d:'Can machines think? What is the self?', p:'A curious conversation about the philosophy of mind: consciousness, the self, whether AI can really think, the mind-body problem. Introduce key terms gently and encourage the learner to explain their own view.'}
 ];
-const TAGNAME = {daily:'Everyday', pro:'Professional', deep:'Deep talk', drill:'Speaking drill'};
+const TAGNAME = {daily:'Everyday', pro:'Professional', deep:'Deep talk', drill:'Speaking drill', basic:'Beginner'};
+const TAGNAME_ZH = {daily:'日常', pro:'工作', deep:'深度话题', drill:'口语练习', basic:'入门'};
+const ZH_SCEN = {coffee:['☕ 茶水间聊天','这周怎么样？累不累、咖啡、周一。'], lunch:['🥪 和同事吃午饭','食物、餐厅、电视剧、趣事。'], weekend:['🏖️ “周末过得怎么样？”','周一闲聊：计划、爱好、家人、旅行。'], news:['📺 体育、新闻和流行文化','同事常聊的：比赛、电影、热门话题。'], meeting:['🧪 团队会议','汇报进展、礼貌地同意或反对、提问。'], 'chat-boss':['🤝 和老板聊天','请求帮助、汇报、回应反馈。'], freewill:['🤔 哲学：我们有自由意志吗？','决定论、选择、责任。'], goodlife:['🌱 哲学：什么是好的人生？','幸福、意义、斯多葛主义、伦理。'], sciethics:['🧬 科学与伦理','人工智能、基因编辑、科研伦理。'], mind:['🧠 心灵与意识','机器会思考吗？什么是自我？'], 'drill-daily':['🎯 问答练习：日常生活','老师提问，你回答，再说一遍更好的说法。'], 'drill-work':['🎯 问答练习：工作闲聊','同事真正会问你的问题。'], 'drill-deep':['🎯 问答练习：深度问题','哲学类问题：说出理由和例子。']};
+function scenTitle(s){ return S.lang === 'zh' ? (s.zt || (ZH_SCEN[s.id] || [])[0] || s.t) : s.t; }
+function scenDesc(s){ return S.lang === 'zh' ? (s.zd || (ZH_SCEN[s.id] || [])[1] || s.d) : s.d; }
 
 /* ---------- prompts ---------- */
 function vocabSpec(){
+  if(S.lang === 'zh') return `{"word": string, "meaning": string (short meaning in Simplified Chinese), "example": string (simple English example)}`;
   return S.native ? `{"word": string, "meaning": string (simple English), "example": string, "translation": string (meaning in ${S.native})}` : `{"word": string, "meaning": string (simple English), "example": string}`;
 }
 function talkSystem(scen){
-  return `You are "Alex", a friendly American coworker and English conversation partner for a non-native speaker who works in a science lab. They are fine with technical lab English but struggle to follow casual everyday talk between coworkers (idioms, slang, phrasal verbs, cultural references), and they want to discuss abstract topics such as philosophy but lack the vocabulary and don't know how to organize their thoughts.
+  return `You are "${PNAME()}", ${PERSONAS[S.persona] || PERSONAS.coworker}, and an English conversation partner for an adult non-native speaker.
+About the learner: ${S.about || 'not given yet. Learn about them naturally as you talk.'}
+What they want to practise: ${S.goals || 'everyday conversation, sounding natural, and new vocabulary.'}
 Learner level: ${S.level}.
 Scenario: ${scen}
 
 How to talk:
-- Sound like a real coworker: natural, relaxed, contractions, and the idioms and phrasal verbs native speakers really use, pitched just a little above the learner's level.
+- Stay in character and sound like a real person: natural, relaxed, contractions, and the idioms and phrasal verbs native speakers really use, pitched just a little above the learner's level.
 - Keep each reply SHORT (1-3 sentences, under about 50 words), and usually end with a question or a hook so the learner keeps talking.
 - If the learner seems lost or asks what something means, explain simply, then carry on.
 - For deep topics, introduce one key idea or term at a time.
 
 - The learner's messages come from speech recognition, so ignore missing punctuation and capital letters. Don't correct them; another tutor does that. Just keep the conversation going.
+- If the learner asks how to say something (in any language, e.g. "怎么说…", "用英语怎么说", "how do I say…"), or writes in their own language, teach it: give the natural English way to say it, then invite them to try saying it, then continue the conversation.${S.level === 'Beginner' ? `
+- The learner is a BEGINNER. Use only very common, simple words. Each reply: at most 2 short sentences (under 12 words each) and ONE easy question. No slang or idioms unless you explain them simply. Be warm, patient and encouraging.` : ''}
 
 Respond ONLY with JSON in this shape:
-{"reply": string (what Alex says),
+{"reply": string (what ${PNAME()} says),${S.lang === 'zh' ? `
+ "reply_zh": string (a natural Simplified Chinese translation of your reply, plus a short Chinese explanation if you are teaching how to say something),` : ''}
  "phrases": [{"phrase": string, "meaning": string}] (0-2 idioms, slang or phrasal verbs that YOU used in your reply),
  "vocab": [${vocabSpec()}] (0-2 useful words or expressions the learner could use in their next answer)}
-When the learner's message is exactly "[START]", open the conversation naturally as Alex.`;
+When the learner's message is exactly "[START]", open the conversation naturally as ${PNAME()}.`;
 }
 const FB_SYSTEM = () => `You are a kind, concise English tutor for a non-native speaker (level ${S.level}). You'll see what a coworker said and the learner's spoken reply. The reply comes from speech recognition, so IGNORE punctuation, capitalization and obvious transcription glitches. Judge only grammar, word choice and naturalness. Respond ONLY with JSON:
 {"perfect": boolean (true if it is grammatical and sounds natural enough for casual speech),
  "corrected": string (the learner's sentence with only the errors fixed),
  "natural": string (how a native speaker would casually say the same thing, kept short),
- "explanation": string (one short sentence on the most useful fix, or brief praise)}`;
+ "explanation": string (one short sentence on the most useful fix, or brief praise)}${BEGINNER_NOTE()}${LANG_NOTE()}`;
 function memoryBlock(){
   if(!S.memoryOn) return '';
   const m = memory, out = [];
@@ -407,28 +487,36 @@ function memoryBlock(){
   if(!out.length) return '';
   return `\n\nWhat you remember about this learner from earlier conversations. Use it naturally, like a coworker who knows them: use their name, follow up on things they told you before, and steer toward chances to practise their usual mistakes. Never list these notes back or mention a "memory" or "notes".\n${out.join('\n')}\nWhen the message is "[START]", greet them warmly by name if you know it and, if it fits the scenario, follow up on something from a recent conversation.`;
 }
-const MEM_SYSTEM = () => `You keep a short memory profile of an English learner so that their conversation partner "Alex" can remember them between sessions. You'll get the CURRENT PROFILE (JSON) and a NEW CONVERSATION (with the tutor's corrections). Return the UPDATED profile, respond ONLY with JSON:
+const MEM_SYSTEM = () => `You keep a short memory profile of an English learner so that their conversation partner "${PNAME()}" can remember them between sessions. You'll get the CURRENT PROFILE (JSON) and a NEW CONVERSATION (with the tutor's corrections). Return the UPDATED profile, respond ONLY with JSON:
 {"name": string ("" if never mentioned),
  "facts": [string] (personal facts the learner shared: job, lab, hometown, family, pets, plans, recent events; max 15, most useful first; merge duplicates; drop facts that are outdated),
  "interests": [string] (max 8),
  "goals": [string] (their goals for English or life that they mentioned, max 5),
  "mistakes": [string] (recurring grammar or word-choice patterns, each with a tiny example, e.g. 'past tense: "I go" → "I went"'; max 6, most frequent first),
  "summary": string (1-2 sentences about THIS conversation, including anything worth following up on next time)}
-Only include what the learner actually said about themselves. Keep each item short. Keep useful items from the current profile.`;
-const HINT_SYSTEM = () => `You help a non-native English speaker (level ${S.level}) who is stuck in a conversation. Given the conversation so far, suggest 3 things they could say next: one simple, one medium, one more advanced and natural. Respond ONLY with JSON: {"options":[{"say": string, "why": string (very short: what this does, e.g. "shares an opinion and asks back")}]}`;
+Only include what the learner actually said about themselves. Keep each item short. Keep useful items from the current profile.${LANG_NOTE()}`;
+const HINT_SYSTEM = () => `You help a non-native English speaker (level ${S.level}) who is stuck in a conversation. Given the conversation so far, suggest 3 things they could say next: one simple, one medium, one more advanced and natural. Respond ONLY with JSON: {"options":[{"say": string, "why": string (very short: what this does, e.g. "shares an opinion and asks back")}]}${BEGINNER_NOTE()}${LANG_NOTE()}`;
 const ORG_SYSTEM = () => `You help a non-native English speaker (level ${S.level}) turn rough ideas into clear, well-organized SPOKEN English, for casual or thoughtful conversations with coworkers. Their input may be broken English, ${S.native || 'their native language'}, or a mix. Respond ONLY with JSON:
 {"understood": string (one line: what they mean, in plain English),
  "structure": [{"step": string (e.g. "Main point", "Reason", "Example", "Wrap up / ask back"), "sentence": string}] (3-4 steps, natural spoken sentences),
  "simple": string (a short, simple spoken version, 2-3 sentences),
  "advanced": string (a richer version with more sophisticated vocabulary, still natural to say out loud),
  "connectors": [string] (4-6 linking phrases that help organize this kind of idea, e.g. "The way I see it, ..."),
- "vocab": [${vocabSpec()}] (3-5 key words for this topic)}`;
-const DEC_SYSTEM = () => `A non-native English speaker (level ${S.level}) who works in a science lab heard a coworker say something and didn't understand it. Explain it like a friendly native-speaking friend would. The quote may be incomplete or misheard; make your best guess and say so. Respond ONLY with JSON:
+ "vocab": [${vocabSpec()}] (3-5 key words for this topic)}${BEGINNER_NOTE()}${LANG_NOTE()}`;
+const DEC_SYSTEM = () => `A non-native English speaker (level ${S.level}) heard someone (a coworker, friend or neighbour) say something and didn't understand it. About the learner: ${S.about || 'not given'}. Explain it like a friendly native-speaking friend would. The quote may be incomplete or misheard; make your best guess and say so. Respond ONLY with JSON:
 {"meaning": string (what they meant, in plain simple English),
  "breakdown": [{"phrase": string, "meaning": string}] (idioms, slang, phrasal verbs, cultural references),
  "tone": string (e.g. joking, sarcastic, friendly complaint),
  "replies": [string] (3 natural ways to respond),
- "vocab": [${vocabSpec()}] (1-3 of the most useful expressions to save)}`;
+ "vocab": [${vocabSpec()}] (1-3 of the most useful expressions to save)}${BEGINNER_NOTE()}${LANG_NOTE()}`;
+const HOW_SYSTEM = () => `An English learner (level ${S.level}) asks how to say something in English. They may write in Chinese, another language, broken English or a mix. Teach them like a kind teacher. Respond ONLY with JSON:
+{"english": string (the most natural everyday way to say it${S.level === 'Beginner' ? ', short and simple' : ''}),
+ "simple": string (an even simpler way to say it, or "" if "english" is already simple),
+ "meaning": string (1-2 sentences: what it means and when to use it),
+ "words": [{"word": string, "meaning": string}] (2-5 key words or chunks from the sentence),
+ "pronunciation": string (short tips: which words or syllables to stress (show them in CAPITALS), linking, hard sounds),
+ "dialog": [{"who": "A" or "B", "en": string, "tr": string (translation)}] (a short 2-4 line everyday dialogue that uses it),
+ "more": [string] (0-2 other natural ways to say it)}${BEGINNER_NOTE()}${LANG_NOTE()}`;
 
 /* ---------- Gemini ---------- */
 const API = 'https://generativelanguage.googleapis.com/v1beta';
@@ -506,7 +594,7 @@ function note(msg){
 }
 
 async function askAI(system, contents){
-  if(!S.apiKey && !(S.backup !== 'none' && S.backupKey)) throw new Error('Add your free Gemini API key in ⚙️ Settings first.');
+  if(!S.apiKey && !(S.backup !== 'none' && S.backupKey)) throw new Error(L('Add your free Gemini API key in ⚙️ Settings first.', '请先在 ⚙️ 设置里填好免费的 Gemini API 密钥。'));
   const errors = [];
   if(S.apiKey){
     if(!S.models){ try{ S.models = await loadModels(); store.set('settings', S); }catch(e){ S.models = []; } }
@@ -516,7 +604,7 @@ async function askAI(system, contents){
       try{
         const r = await geminiCall(plan[i], system, contents);
         if(plan[i] !== S.model){
-          note(`${S.model} was busy, so I switched to ${plan[i]}. (You can change it in ⚙️ Settings.)`);
+          note(L(`${S.model} was busy, so I switched to ${plan[i]}. (You can change it in ⚙️ Settings.)`, `${S.model} 太忙了，已换成 ${plan[i]}。`));
           S.model = plan[i]; store.set('settings', S);
           const sel = $('#model');
           if(![...sel.options].some(o => o.value === S.model)) sel.insertAdjacentHTML('afterbegin', `<option value="${esc(S.model)}">${esc(S.model)}</option>`);
@@ -538,7 +626,7 @@ async function askAI(system, contents){
     }catch(e){ errors.push(e); }
   }
   if(errors.length && errors.every(e => e.retryable)){
-    throw new Error('All the free AI models are busy right now. Wait a minute and try again' + (S.backup === 'none' ? ', or add a backup AI service in ⚙️ Settings.' : '.'));
+    throw new Error(L('All the free AI models are busy right now. Wait a minute and try again' + (S.backup === 'none' ? ', or add a backup AI service in ⚙️ Settings.' : '.'), '免费的 AI 现在都很忙。请等一分钟再试。'));
   }
   throw errors.find(e => !e.retryable) || errors[errors.length - 1];
 }
@@ -608,13 +696,13 @@ document.addEventListener('click', () => {
 }, {capture:true});
 let rec = null, recBtn = null;
 function toggleMic(btn, ta, onDone, opts){
-  if(!SR){ showErr('Voice input isn\'t supported in this browser. Please open this file in Google Chrome or Microsoft Edge, or just type.'); return; }
+  if(!SR){ showErr(L('Voice input isn\'t supported in this browser. Please use Chrome, Edge or Safari, or just type.', '这个浏览器不支持语音输入。请用 Chrome、Edge 或 Safari，或者直接打字。')); return; }
   if(rec){ rec.stop(); return; }
   speechSynthesis && speechSynthesis.cancel();
   const base = ta.value ? ta.value.trim() + ' ' : '';
   let finalText = '';
   rec = new SR();
-  rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = (opts && 'continuous' in opts) ? opts.continuous : (!IS_MOBILE && !S.handsFree);
+  rec.lang = (opts && opts.lang) || 'en-US'; rec.interimResults = true; rec.continuous = (opts && 'continuous' in opts) ? opts.continuous : (!IS_MOBILE && !S.handsFree);
   recBtn = btn; btn.classList.add('on'); btn.textContent = '■';
   rec.onresult = e => {
     let interim = '';
@@ -625,9 +713,9 @@ function toggleMic(btn, ta, onDone, opts){
     ta.value = base + finalText + interim;
   };
   rec.onerror = e => {
-    if(e.error === 'not-allowed' || e.error === 'service-not-allowed') showErr('The microphone is blocked. Click the icon at the left of the address bar, allow the microphone, and try again.');
-    else if(e.error === 'no-speech'){ if(!S.handsFree) showErr('I didn\'t hear anything. Try again, a little closer to the mic.'); }
-    else if(e.error === 'network') showErr('Voice input needs an internet connection.');
+    if(e.error === 'not-allowed' || e.error === 'service-not-allowed') showErr(L('The microphone is blocked. Click the icon at the left of the address bar, allow the microphone, and try again.', '麦克风被阻止了。点地址栏左边的图标，允许使用麦克风，然后再试一次。'));
+    else if(e.error === 'no-speech'){ if(!S.handsFree) showErr(L('I didn\'t hear anything. Try again, a little closer to the mic.', '没有听到声音。请靠近麦克风再试一次。')); }
+    else if(e.error === 'network') showErr(L('Voice input needs an internet connection.', '语音输入需要联网。'));
   };
   rec.onend = () => {
     btn.classList.remove('on'); btn.textContent = '🎤'; rec = null;
@@ -653,7 +741,7 @@ function vocabChips(list){
   return '<div class="chips">' + list.map(v => {
     const data = esc(JSON.stringify(v));
     const saved = hasWord(v.word || v.phrase);
-    return `<div class="chip"><b>${esc(v.word || v.phrase)}</b>: ${esc(v.meaning)}${v.translation ? ` <span class="tr">(${esc(v.translation)})</span>` : ''}${v.example ? `<br><i class="muted">"${esc(v.example)}"</i>` : ''}<button class="save${saved?' done':''}" data-v="${data}">${saved?'saved':'+ save'}</button></div>`;
+    return `<div class="chip"><b>${esc(v.word || v.phrase)}</b>: ${esc(v.meaning)}${v.translation ? ` <span class="tr">(${esc(v.translation)})</span>` : ''}${v.example ? `<br><i class="muted">"${esc(v.example)}"</i>` : ''}<button class="save${saved?' done':''}" data-v="${data}">${saved ? L('saved','已存') : L('+ save','+ 存')}</button></div>`;
   }).join('') + '</div>';
 }
 document.addEventListener('click', e => {
@@ -666,7 +754,7 @@ document.addEventListener('click', e => {
       words.unshift({word:w, meaning:v.meaning || '', example:v.example || '', translation:v.translation || '', added:today(), known:0});
       store.set('words', words);
     }
-    b.classList.add('done'); b.textContent = 'saved';
+    b.classList.add('done'); b.textContent = L('saved','已存');
   }catch(err){}
 });
 
@@ -684,19 +772,23 @@ $('#nav').addEventListener('click', e => { const b = e.target.closest('button');
 /* ---------- TALK ---------- */
 let convo = null; // {title, system, history:[{role,parts}]}
 function renderScenarios(){
-  $('#scenarios').innerHTML = SCENARIOS.map(s => `<button class="scen" data-id="${s.id}"><span class="tag ${s.tag}">${TAGNAME[s.tag]}</span><b>${esc(s.t)}</b><span>${esc(s.d)}</span></button>`).join('');
+  const basicFirst = S.level === 'Beginner';
+  const list = SCENARIOS.filter(s => s.tag === 'basic' || s.id === 'drill-basic');
+  const rest = SCENARIOS.filter(s => !(s.tag === 'basic' || s.id === 'drill-basic'));
+  const ordered = basicFirst ? list.concat(rest) : rest.concat(list);
+  $('#scenarios').innerHTML = ordered.map(s => `<button class="scen" data-id="${s.id}"><span class="tag ${s.tag}">${L(TAGNAME[s.tag], TAGNAME_ZH[s.tag])}</span><b>${esc(scenTitle(s))}</b><span>${esc(scenDesc(s))}</span></button>`).join('');
 }
 $('#scenarios').addEventListener('click', e => {
   const b = e.target.closest('.scen'); if(!b) return;
   const s = SCENARIOS.find(x => x.id === b.dataset.id);
-  startConvo(s.t, s.p, s.tag === 'drill');
+  startConvo(scenTitle(s), s.p, s.tag === 'drill');
 });
 $('#customGo').addEventListener('click', () => {
   const t = $('#customTopic').value.trim(); if(!t) return;
   startConvo('✏️ ' + t, `A friendly, curious conversation with a coworker about: "${t}". Introduce useful vocabulary for this topic naturally and help the learner express and organize their opinions.`);
 });
 function startConvo(title, prompt, drill){
-  if(!S.apiKey && !(S.backup !== 'none' && S.backupKey)){ showTab('settings'); showErr('First, add your free Gemini API key here.'); return; }
+  if(!S.apiKey && !(S.backup !== 'none' && S.backupKey)){ showTab('settings'); showErr(L('First, add your free Gemini API key here.', '请先在这里填好免费的 Gemini API 密钥。')); return; }
   const sess = {id: Date.now().toString(36), title, date: today(), turns: [], memDone: 0};
   sessions.unshift(sess);
   convo = {title, system: talkSystem(prompt) + memoryBlock(), history: [], drill: !!drill, sess};
@@ -745,10 +837,10 @@ function feedbackEl(f, text, compact){
   const d = document.createElement('div');
   if(f.perfect){
     d.className = 'fb ok mini';
-    d.innerHTML = `<div class="lbl">✓ Sounds good</div>${f.natural && norm(f.natural).join(' ') !== norm(text).join(' ') ? `Also natural: <b>${esc(f.natural)}</b> <button class="icon" data-say="${esc(f.natural)}">🔊</button>` : `<span class="muted">${esc(f.explanation)}</span>`}`;
+    d.innerHTML = `<div class="lbl">${L('✓ Sounds good', '✓ 说得好')}</div>${f.natural && norm(f.natural).join(' ') !== norm(text).join(' ') ? `${L('Also natural:', '也可以说：')} <b>${esc(f.natural)}</b> <button class="icon" data-say="${esc(f.natural)}">🔊</button>` : `<span class="muted">${esc(f.explanation)}</span>`}`;
   }else{
     d.className = 'fb' + (compact ? ' mini' : '');
-    d.innerHTML = `<div class="lbl">Better</div><b>${esc(f.corrected)}</b><div class="lbl" style="margin-top:6px">Native style</div><b>${esc(f.natural)}</b> <button class="icon" data-say="${esc(f.natural)}">🔊</button><br><span class="muted">${esc(f.explanation)}</span>`;
+    d.innerHTML = `<div class="lbl">${L('Better', '改正')}</div><b>${esc(f.corrected)}</b><div class="lbl" style="margin-top:6px">${L('Native style', '地道的说法')}</div><b>${esc(f.natural)}</b> <button class="icon" data-say="${esc(f.natural)}">🔊</button><br><span class="muted">${esc(f.explanation)}</span>`;
   }
   return d;
 }
@@ -765,16 +857,16 @@ async function sendTurn(text){
   let meEl = null;
   let meTurn = null;
   if(!isStart){
-    meEl = addEl(`<div class="who">You</div>${esc(text)}`, 'msg me');
+    meEl = addEl(`<div class="who">${L('You','你')}</div>${esc(text)}`, 'msg me');
     meTurn = {who:'me', text}; convo.sess.turns.push(meTurn); saveSessions();
   }
-  const loading = addEl('Alex is typing…', 'loading');
+  const loading = addEl(L(`${esc(PNAME())} is typing…`, `${esc(PNAME())} 正在输入…`), 'loading');
   const alexSaid = lastAlexLine();
   convo.history.push({role:'user', parts:[{text}]});
 
   // Alex's reply and your correction are requested at the same time.
   const replyP = askAI(convo.system, convo.history).then(r => ({r}), e => ({e}));
-  const fbP = isStart ? Promise.resolve(null)
+  const fbP = (isStart || isCJK(text) || /how (do|can|would) (i|you) say/i.test(text)) ? Promise.resolve(null)
     : askAI(FB_SYSTEM(), [{role:'user', parts:[{text:`Coworker said: "${alexSaid || '(start of conversation)'}"\nLearner replied: "${text}"`}]}]).catch(() => null);
 
   const finishBusy = () => { busy = false; $('#sendBtn').disabled = false; };
@@ -791,10 +883,10 @@ async function sendTurn(text){
     convo.history.push({role:'model', parts:[{text: JSON.stringify(r)}]});
     convo.sess.turns.push({who:'alex', text: r.reply}); saveSessions();
     maybeUpdateMemory(convo.sess, false);
-    addEl(`<div class="who">Alex</div>${esc(r.reply)}<div class="tools"><button class="icon" data-say="${esc(r.reply)}">🔊 Replay</button><button class="icon" data-say="${esc(r.reply)}" data-slow="1">🐢 Slow</button></div>`, 'msg ai');
+    addEl(`<div class="who">${esc(PNAME())}</div>${esc(r.reply)}<div class="tools"><button class="icon" data-say="${esc(r.reply)}">🔊 ${L('Replay','再听')}</button><button class="icon" data-say="${esc(r.reply)}" data-slow="1">🐢 ${L('Slow','慢速')}</button></div>${r.reply_zh ? `<div class="zh">${esc(r.reply_zh)}</div>` : ''}`, 'msg ai');
     let ex = '';
-    if(r.phrases && r.phrases.length) ex += `<div class="muted" style="margin-top:2px">Expressions Alex used</div>` + vocabChips(r.phrases);
-    if(r.vocab && r.vocab.length) ex += `<div class="muted" style="margin-top:6px">Words you could use next</div>` + vocabChips(r.vocab);
+    if(r.phrases && r.phrases.length) ex += `<div class="muted" style="margin-top:2px">${L('Expressions ' + esc(PNAME()) + ' used', esc(PNAME()) + ' 用到的表达')}</div>` + vocabChips(r.phrases);
+    if(r.vocab && r.vocab.length) ex += `<div class="muted" style="margin-top:6px">${L('Words you could use next', '你下次可以用的词')}</div>` + vocabChips(r.vocab);
     if(ex) addEl(ex, 'extras');
     finishBusy();
     if(S.autoSpeak) speak(r.reply, null, S.handsFree ? listenNow : null);
@@ -824,7 +916,7 @@ document.addEventListener('click', e => {
 });
 function sendFromBox(){
   const t = $('#talkIn').value.trim(); if(!t) return;
-  if(repeating){ showErr('First say the better version again (🎤 in the purple box), or tap "Skip".', $('#chat')); return; }
+  if(repeating){ showErr(L('First say the better version again (🎤 in the purple box), or tap "Skip".', '请先把更好的说法再说一遍（点紫色框里的 🎤），或者点"跳过"。'), $('#chat')); return; }
   $('#talkIn').value = ''; growBox(); sendTurn(t);
 }
 $('#sendBtn').addEventListener('click', sendFromBox);
@@ -832,12 +924,19 @@ function growBox(){ const t = $('#talkIn'); t.style.height = 'auto'; t.style.hei
 $('#talkIn').addEventListener('input', growBox);
 setInterval(() => { if(rec && convo) growBox(); }, 300);
 $('#talkIn').addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendFromBox(); } });
-$('#talkMic').addEventListener('click', () => toggleMic($('#talkMic'), $('#talkIn'), (S.autoSend || S.handsFree) ? sendFromBox : null));
-function paintHands(){ $('#handsBtn').classList.toggle('on', !!S.handsFree); $('#handsBtn').textContent = S.handsFree ? '🎧 Hands-free: ON' : '🎧 Hands-free'; }
+let micZh = false;
+$('#micLang').addEventListener('click', () => { micZh = !micZh; paintMicLang(); });
+function paintMicLang(){
+  $('#micLang').classList.toggle('hidden', S.lang !== 'zh');
+  $('#micLang').textContent = micZh ? '🎤 中文' : '🎤 EN';
+  $('#micLang').title = micZh ? '现在说中文（问"怎么说"）。点一下换成英文。' : '现在说英文。点一下换成中文。';
+}
+$('#talkMic').addEventListener('click', () => toggleMic($('#talkMic'), $('#talkIn'), (S.autoSend || S.handsFree) && !micZh ? sendFromBox : null, {lang: micZh ? 'zh-CN' : 'en-US'}));
+function paintHands(){ $('#handsBtn').classList.toggle('on', !!S.handsFree); $('#handsBtn').textContent = S.handsFree ? L('🎧 Hands-free: ON', '🎧 免提：开') : L('🎧 Hands-free', '🎧 免提'); }
 $('#handsBtn').addEventListener('click', () => {
   S.handsFree = !S.handsFree; store.set('settings', S); paintHands();
   if(S.handsFree){
-    note('Hands-free is on: after Alex speaks, just talk. When you stop, your answer is sent automatically.');
+    note(L(`Hands-free is on: after ${PNAME()} speaks, just talk. When you stop, your answer is sent automatically.`, `免提已打开：${PNAME()} 说完后，你直接说话。你停下来时，回答会自动发送。`));
     listenNow();
   }else if(rec){ rec.stop(); }
 });
@@ -846,12 +945,12 @@ $('#hintBtn').addEventListener('click', async () => {
   if(!convo) return;
   const transcript = convo.history.filter(h => h.parts[0].text !== '[START]').map(h => {
     if(h.role === 'user') return 'Learner: ' + h.parts[0].text;
-    try{ return 'Alex: ' + JSON.parse(h.parts[0].text).reply; }catch(e){ return ''; }
+    try{ return PNAME() + ': ' + JSON.parse(h.parts[0].text).reply; }catch(e){ return ''; }
   }).join('\n');
-  $('#hints').innerHTML = '<p class="loading">Thinking of ideas…</p>';
+  $('#hints').innerHTML = `<p class="loading">${L('Thinking of ideas…','正在想…')}</p>`;
   try{
     const r = await askAI(HINT_SYSTEM(), [{role:'user', parts:[{text:'Conversation so far:\n' + transcript + '\n\nWhat could the learner say next?'}]}]);
-    $('#hints').innerHTML = '<h3>Tap one to use it</h3>' + (r.options || []).map(o => `<div class="opt" data-use="${esc(o.say)}">${esc(o.say)}<small>${esc(o.why)}</small></div>`).join('');
+    $('#hints').innerHTML = `<h3>${L('Tap one to use it','点一个来用')}</h3>` + (r.options || []).map(o => `<div class="opt" data-use="${esc(o.say)}">${esc(o.say)}<small>${esc(o.why)}</small></div>`).join('');
     toBottom();
   }catch(e){ $('#hints').innerHTML = ''; showErr(e.message, $('#chat')); }
 });
@@ -885,11 +984,11 @@ function compareSpeech(target, said){
 function repeatPanel(target, done){
   repeating = true;
   $('#talkBar').classList.add('hidden');
-  const el = addEl(`<div class="lbl">🔁 Your turn: say the better version</div>
+  const el = addEl(`<div class="lbl">${L('🔁 Your turn: say the better version', '🔁 轮到你了：把更好的说法说一遍')}</div>
     <div class="target">${esc(target)}</div>
     <div class="row"><button class="mic rmic" title="Speak">🎤</button>
-      <button class="icon r-listen">🔊 Listen</button><button class="icon r-slow">🐢 Slow</button>
-      <button class="icon r-hide">🙈 Hide text</button><button class="icon r-skip">Skip →</button></div>
+      <button class="icon r-listen">🔊 ${L('Listen','听')}</button><button class="icon r-slow">🐢 ${L('Slow','慢速')}</button>
+      <button class="icon r-hide">🙈 ${L('Hide text','隐藏文字')}</button><button class="icon r-skip">${L('Skip →','跳过 →')}</button></div>
     <div class="rres"></div>`, 'repeat');
   const tgt = el.querySelector('.target'), res = el.querySelector('.rres'), mic = el.querySelector('.rmic');
   const holder = {value:''};
@@ -911,11 +1010,11 @@ function repeatPanel(target, done){
     toggleMic(mic, holder, () => {
       tries++;
       const sc = compareSpeech(target, holder.value), pct = Math.round(sc.pct * 100);
-      if(sc.pct >= 0.8){
-        res.innerHTML = `<p>${sc.html}</p><p class="good">✓ ${pct}%. Great, that's it!</p>`;
+      if(sc.pct >= PASS()){
+        res.innerHTML = `<p>${sc.html}</p><p class="good">✓ ${pct}%. ${L("Great, that's it!", '太棒了，就是这样！')}</p>`;
         setTimeout(finish, 1300);
       }else{
-        res.innerHTML = `<p>${sc.html}</p><p class="muted">You said: <i>${esc(holder.value)}</i></p><p class="muted">${pct}% match. The <span class="w-miss">red words</span> were missing. Tap 🎤 and try again.${tries >= 3 ? ' Or tap Skip to move on; good effort!' : ''}</p>`;
+        res.innerHTML = `<p>${sc.html}</p><p class="muted">${L('You said:','你说的是：')} <i>${esc(holder.value)}</i></p><p class="muted">${L(`${pct}% match. The <span class="w-miss">red words</span> were missing. Tap 🎤 and try again.${tries >= 3 ? ' Or tap Skip to move on; good effort!' : ''}`, `匹配 ${pct}%。<span class="w-miss">红色的词</span>没说到。点 🎤 再试一次。${tries >= 3 ? '也可以点"跳过"继续，已经很努力了！' : ''}`)}</p>`;
       }
     }, {continuous:false});
   };
@@ -927,19 +1026,19 @@ function repeatPanel(target, done){
 $('#orgMic').addEventListener('click', () => toggleMic($('#orgMic'), $('#orgIn')));
 $('#orgGo').addEventListener('click', async () => {
   const t = $('#orgIn').value.trim(); if(!t) return;
-  const out = $('#orgOut'); out.innerHTML = '<p class="loading">Organizing your idea…</p>';
+  const out = $('#orgOut'); out.innerHTML = `<p class="loading">${L('Organizing your idea…','正在整理…')}</p>`;
   $('#orgGo').disabled = true;
   try{
     const r = await askAI(ORG_SYSTEM(), [{role:'user', parts:[{text:t}]}]);
     out.innerHTML = `
-      <div class="card"><h3>What you mean</h3><p>${esc(r.understood)}</p></div>
-      <div class="card"><h3>Organized, step by step</h3>
+      <div class="card"><h3>${L('What you mean','你的意思')}</h3><p>${esc(r.understood)}</p></div>
+      <div class="card"><h3>${L('Organized, step by step','一步一步整理好')}</h3>
         ${(r.structure || []).map(s => `<div class="step"><div class="n">${esc(s.step)}</div><div>${esc(s.sentence)} <button class="icon" data-say="${esc(s.sentence)}">🔊</button></div></div>`).join('')}
       </div>
-      <div class="card"><h3>Simple version</h3><div class="say">${esc(r.simple)} <button class="icon" data-say="${esc(r.simple)}">🔊</button></div>
-        <h3>Advanced version</h3><div class="say">${esc(r.advanced)} <button class="icon" data-say="${esc(r.advanced)}">🔊</button></div></div>
-      <div class="card"><h3>Phrases for organizing ideas</h3><div class="chips">${(r.connectors || []).map(c => `<div class="chip">${esc(c)}</div>`).join('')}</div>
-        <h3>Key words</h3>${vocabChips(r.vocab)}</div>`;
+      <div class="card"><h3>${L('Simple version','简单版')}</h3><div class="say">${esc(r.simple)} <button class="icon" data-say="${esc(r.simple)}">🔊</button></div>
+        <h3>${L('Advanced version','高级版')}</h3><div class="say">${esc(r.advanced)} <button class="icon" data-say="${esc(r.advanced)}">🔊</button></div></div>
+      <div class="card"><h3>${L('Phrases for organizing ideas','组织想法的连接词')}</h3><div class="chips">${(r.connectors || []).map(c => `<div class="chip">${esc(c)}</div>`).join('')}</div>
+        <h3>${L('Key words','关键词')}</h3>${vocabChips(r.vocab)}</div>`;
   }catch(e){ out.innerHTML = ''; showErr(e.message); }
   finally{ $('#orgGo').disabled = false; }
 });
@@ -948,25 +1047,25 @@ $('#orgGo').addEventListener('click', async () => {
 $('#decGo').addEventListener('click', async () => {
   const t = $('#decIn').value.trim(); if(!t) return;
   const ctx = $('#decCtx').value.trim();
-  const out = $('#decOut'); out.innerHTML = '<p class="loading">Figuring it out…</p>';
+  const out = $('#decOut'); out.innerHTML = `<p class="loading">${L('Figuring it out…','正在分析…')}</p>`;
   $('#decGo').disabled = true;
   try{
     const r = await askAI(DEC_SYSTEM(), [{role:'user', parts:[{text:`What my coworker said: "${t}"` + (ctx ? `\nContext: ${ctx}` : '')}]}]);
     out.innerHTML = `
-      <div class="card"><h3>What they meant</h3><p>${esc(r.meaning)}</p><p class="muted">Tone: ${esc(r.tone)}</p></div>
-      <div class="card"><h3>Breaking it down</h3>${vocabChips(r.breakdown)}</div>
-      <div class="card"><h3>How you could reply</h3>${(r.replies || []).map(x => `<div class="say">${esc(x)} <button class="icon" data-say="${esc(x)}">🔊</button></div>`).join('')}
-        ${r.vocab && r.vocab.length ? '<h3>Worth saving</h3>' + vocabChips(r.vocab) : ''}</div>`;
+      <div class="card"><h3>${L('What they meant','他们的意思')}</h3><p>${esc(r.meaning)}</p><p class="muted">${L('Tone:','语气：')} ${esc(r.tone)}</p></div>
+      <div class="card"><h3>${L('Breaking it down','逐个解释')}</h3>${vocabChips(r.breakdown)}</div>
+      <div class="card"><h3>${L('How you could reply','你可以这样回答')}</h3>${(r.replies || []).map(x => `<div class="say">${esc(x)} <button class="icon" data-say="${esc(x)}">🔊</button></div>`).join('')}
+        ${r.vocab && r.vocab.length ? `<h3>${L('Worth saving','值得记住')}</h3>` + vocabChips(r.vocab) : ''}</div>`;
   }catch(e){ out.innerHTML = ''; showErr(e.message); }
   finally{ $('#decGo').disabled = false; }
 });
 
 /* ---------- WORD BANK ---------- */
 function renderWords(){
-  $('#wordCount').textContent = `📒 Word bank (${words.length})`;
+  $('#wordCount').textContent = `📒 ${L('Word bank','单词本')} (${words.length})`;
   const list = $('#wordList');
-  if(!words.length){ list.innerHTML = '<p class="muted">No words yet. Tap "+ save" on any word or phrase during practice.</p>'; return; }
-  list.innerHTML = words.map((w,i) => `<div class="wordrow"><div><b>${esc(w.word)}</b> <button class="icon" data-say="${esc(w.word)}">🔊</button>${w.known >= 3 ? ' <span class="tag deep">learned</span>' : ''}<br>${esc(w.meaning)}${w.translation ? ` <span class="muted">(${esc(w.translation)})</span>` : ''}${w.example ? `<br><i class="muted">"${esc(w.example)}"</i>` : ''}</div><button class="icon" data-del="${i}" title="Delete">✕</button></div>`).join('');
+  if(!words.length){ list.innerHTML = `<p class="muted">${L('No words yet. Tap "+ save" on any word or phrase during practice.', '还没有单词。练习时点任何单词或短语旁边的"+ 存"。')}</p>`; return; }
+  list.innerHTML = words.map((w,i) => `<div class="wordrow"><div><b>${esc(w.word)}</b> <button class="icon" data-say="${esc(w.word)}">🔊</button>${w.known >= 3 ? ` <span class="tag deep">${L('learned','已掌握')}</span>` : ''}<br>${esc(w.meaning)}${w.translation ? ` <span class="muted">(${esc(w.translation)})</span>` : ''}${w.example ? `<br><i class="muted">"${esc(w.example)}"</i>` : ''}</div><button class="icon" data-del="${i}" title="Delete">✕</button></div>`).join('');
 }
 $('#wordList').addEventListener('click', e => {
   const b = e.target.closest('[data-del]'); if(!b) return;
@@ -974,9 +1073,9 @@ $('#wordList').addEventListener('click', e => {
 });
 let queue = [], cur = null, revealed = false;
 function nextCard(){
-  if(!queue.length){ $('#flash').innerHTML = '<div class="w">🎉 Done!</div><p class="muted">Come back tomorrow for more.</p>'; cur = null; return; }
+  if(!queue.length){ $('#flash').innerHTML = `<div class="w">🎉 ${L('Done!','完成！')}</div><p class="muted">${L('Come back tomorrow for more.','明天再来复习吧。')}</p>`; cur = null; return; }
   cur = queue.shift(); revealed = false;
-  $('#flash').innerHTML = `<div class="w">${esc(cur.word)}</div><p class="muted">Do you remember what it means? Tap to check.</p>`;
+  $('#flash').innerHTML = `<div class="w">${esc(cur.word)}</div><p class="muted">${L('Do you remember what it means? Tap to check.','还记得意思吗？点一下看答案。')}</p>`;
 }
 $('#reviewBtn').addEventListener('click', () => {
   if(!words.length) return;
@@ -1016,19 +1115,21 @@ function fillSettings(){
   $('#welcome').classList.toggle('hidden', !!S.apiKey);
 }
 function readSettings(){
-  S.level = $('#level').value; S.native = $('#native').value.trim();
+  const wasLevel = S.level;
+  S.level = $('#level').value;
+  if(S.level !== wasLevel) renderScenarios(); S.native = $('#native').value.trim();
   S.voice = $('#voice').value; S.rate = parseFloat($('#rate').value);
   S.autoSpeak = $('#autoSpeak').checked; S.autoSend = $('#autoSend').checked; S.repeatMode = $('#repeatMode').checked;
   S.model = $('#model').value || S.model;
   store.set('settings', S);
 }
 $('#rate').addEventListener('input', () => $('#rateVal').textContent = Number($('#rate').value).toFixed(2));
-$('#saveSettings').addEventListener('click', () => { readSettings(); $('#setMsg').textContent = 'Saved ✓'; speak('Hi! This is how I sound.'); setTimeout(() => $('#setMsg').textContent = '', 2500); });
+$('#saveSettings').addEventListener('click', () => { readSettings(); $('#setMsg').textContent = L('Saved ✓','已保存 ✓'); speak('Hi! This is how I sound.'); setTimeout(() => $('#setMsg').textContent = '', 2500); });
 $('#saveKey').addEventListener('click', async () => {
   S.apiKey = $('#apiKey').value.trim();
   const msg = $('#keyMsg');
-  if(!S.apiKey){ msg.innerHTML = '<div class="err">Please paste your key first.</div>'; return; }
-  msg.innerHTML = '<p class="loading">Testing your key…</p>';
+  if(!S.apiKey){ msg.innerHTML = `<div class="err">${L('Please paste your key first.','请先粘贴密钥。')}</div>`; return; }
+  msg.innerHTML = `<p class="loading">${L('Testing your key…','正在测试…')}</p>`;
   try{
     const list = await loadModels();
     if(!list.length) throw new Error('No usable models were found for this key.');
@@ -1038,11 +1139,11 @@ $('#saveKey').addEventListener('click', async () => {
     S.model = list[0];
     m.value = S.model;
     readSettings();
-    msg.innerHTML = `<p style="color:var(--accent);font-weight:600">✓ Your key works! Using ${esc(S.model)}. Go to 💬 Talk to start.</p>`;
+    msg.innerHTML = `<p style="color:var(--accent);font-weight:600">${L(`✓ Your key works! Using ${esc(S.model)}. Go to 💬 Talk to start.`, `✓ 密钥可以用！正在使用 ${esc(S.model)}。去 💬 对话 开始练习吧。`)}</p>`;
     $('#welcome').classList.add('hidden');
   }catch(e){
     store.set('settings', S);
-    msg.innerHTML = `<div class="err">That key didn't work: ${esc(e.message)}</div>`;
+    msg.innerHTML = `<div class="err">${L("That key didn't work:", '这个密钥不能用：')} ${esc(e.message)}</div>`;
   }
 });
 
@@ -1102,7 +1203,7 @@ function fillBackup(){
 let memBusy = false;
 function userTurns(sess){ return sess.turns.filter(t => t.who === 'me').length; }
 function transcriptOf(sess){
-  return sess.turns.map(t => t.who === 'alex' ? `Alex: ${t.text}` :
+  return sess.turns.map(t => t.who === 'alex' ? `${PNAME()}: ${t.text}` :
     `Learner: ${t.text}` + (t.fb && !t.fb.perfect ? `\n  (tutor's correction: "${t.fb.corrected}". ${t.fb.explanation})` : '')).join('\n');
 }
 // Update the memory after a conversation ends, and every 6 answers during a long one (in case the app is closed).
@@ -1137,19 +1238,19 @@ function catchUpMemory(){
   const pending = sessions.find(s => userTurns(s) >= 2 && userTurns(s) > (s.memDone || 0));
   if(pending && (S.apiKey || S.backupKey)) setTimeout(() => maybeUpdateMemory(pending, true), 1500);
 }
-const MEM_LISTS = [['facts','About you'], ['interests','Interests'], ['goals','Goals'], ['mistakes','Mistakes Alex helps you with']];
+const MEM_LISTS = [['facts','About you','关于你'], ['interests','Interests','兴趣'], ['goals','Goals','目标'], ['mistakes','Mistakes to work on','要改进的错误']];
 function renderMemory(){
   $('#memoryOn').checked = S.memoryOn;
   $('#memName').value = memory.name || '';
   let html = '';
-  MEM_LISTS.forEach(([k, label]) => {
-    html += `<h3>${label}</h3>` + (memory[k].length ? memory[k].map((v, i) => `<div class="memitem"><span>${esc(v)}</span><button class="icon" data-memdel="${k}:${i}" title="Delete">✕</button></div>`).join('') : '<p class="muted">Nothing yet.</p>');
+  MEM_LISTS.forEach(([k, label, zlabel]) => {
+    html += `<h3>${L(label, zlabel)}</h3>` + (memory[k].length ? memory[k].map((v, i) => `<div class="memitem"><span>${esc(v)}</span><button class="icon" data-memdel="${k}:${i}" title="Delete">✕</button></div>`).join('') : `<p class="muted">${L('Nothing yet.','还没有。')}</p>`);
   });
-  html += '<h3>Recent conversations</h3>' + (memory.topics.length ? memory.topics.map((t, i) => `<div class="memitem"><span><b>${esc(t.date)}, ${esc(t.title)}</b><br>${esc(t.summary)}</span><button class="icon" data-memdel="topics:${i}" title="Delete">✕</button></div>`).join('') : '<p class="muted">Nothing yet. Alex writes his notes when you finish a conversation (tap "↩ New topic").</p>');
+  html += `<h3>${L('Recent conversations','最近的对话')}</h3>` + (memory.topics.length ? memory.topics.map((t, i) => `<div class="memitem"><span><b>${esc(t.date)}, ${esc(t.title)}</b><br>${esc(t.summary)}</span><button class="icon" data-memdel="topics:${i}" title="Delete">✕</button></div>`).join('') : `<p class="muted">${L('Nothing yet. Notes are written when you finish a conversation (tap "↩ New topic").', '还没有。结束对话（点"↩ 换个话题"）后会写笔记。')}</p>`);
   $('#memLists').innerHTML = html;
-  $('#memStatus').textContent = memBusy ? 'Alex is updating his notes…' : '';
+  $('#memStatus').textContent = memBusy ? L('Updating the notes…','正在更新笔记…') : '';
   const list = sessions.filter(s => userTurns(s) > 0);
-  $('#sessList').innerHTML = list.length ? list.map(s => `<details class="sess"><summary>${esc(s.date)}, ${esc(s.title)} <span class="muted">(${userTurns(s)} answers)</span></summary>${s.turns.map(t => `<div class="line"><b>${t.who === 'me' ? 'You' : 'Alex'}:</b> ${esc(t.text)}${t.fb && !t.fb.perfect ? `<br><span class="muted">✏️ ${esc(t.fb.natural || t.fb.corrected)}</span>` : ''}</div>`).join('')}</details>`).join('') : '<p class="muted">No conversations yet.</p>';
+  $('#sessList').innerHTML = list.length ? list.map(s => `<details class="sess"><summary>${esc(s.date)}, ${esc(s.title)} <span class="muted">(${userTurns(s)} ${L('answers','次回答')})</span></summary>${s.turns.map(t => `<div class="line"><b>${t.who === 'me' ? L('You','你') : esc(PNAME())}:</b> ${esc(t.text)}${t.fb && !t.fb.perfect ? `<br><span class="muted">✏️ ${esc(t.fb.natural || t.fb.corrected)}</span>` : ''}</div>`).join('')}</details>`).join('') : `<p class="muted">${L('No conversations yet.','还没有对话。')}</p>`;
 }
 $('#memLists').addEventListener('click', e => {
   const b = e.target.closest('[data-memdel]'); if(!b) return;
@@ -1183,16 +1284,163 @@ $('#restoreAll').addEventListener('change', async e => {
     if(Array.isArray(d.sessions)){ const have = new Set(sessions.map(s => s.id)); sessions = sessions.concat(d.sessions.filter(s => !have.has(s.id))).sort((a,b) => b.id < a.id ? -1 : 1); }
     if(Array.isArray(d.words)) d.words.forEach(w => { if(w && w.word && !hasWord(w.word)) words.push(w); });
     saveMemory(); saveSessions(); store.set('words', words); renderMemory();
-    $('#memStatus').textContent = '✓ Backup restored.';
+    $('#memStatus').textContent = L('✓ Backup restored.','✓ 备份已恢复。');
   }catch(err){ showErr('That file is not a Coffee Break English backup.'); }
   e.target.value = '';
+});
+
+$('#level').addEventListener('change', () => {
+  if($('#level').value === 'Beginner' && Number($('#rate').value) >= 1){ $('#rate').value = 0.85; $('#rateVal').textContent = '0.85'; }
+});
+
+/* ---------- HOW DO I SAY ---------- */
+function practiceBox(target){
+  return `<div class="repeat" style="margin-top:12px" data-target="${esc(target)}"><div class="lbl">${L('🔁 Practise: say it out loud','🔁 练习：大声说出来')}</div><div class="target">${esc(target)}</div>
+    <div class="row"><button class="mic pmic" title="Speak">🎤</button><button class="icon" data-say="${esc(target)}">🔊 ${L('Listen','听')}</button><button class="icon" data-say="${esc(target)}" data-slow="1">🐢 ${L('Slow','慢速')}</button></div><div class="rres"></div></div>`;
+}
+document.addEventListener('click', e => {
+  const m = e.target.closest('.pmic'); if(!m) return;
+  const box = m.closest('.repeat'), target = box.dataset.target, holder = {value:''};
+  toggleMic(m, holder, () => {
+    const sc = compareSpeech(target, holder.value), pct = Math.round(sc.pct * 100);
+    box.querySelector('.rres').innerHTML = `<p>${sc.html}</p>` + (sc.pct >= PASS()
+      ? `<p class="good">✓ ${pct}%. ${L("Great, that's it!", '太棒了，就是这样！')}</p>`
+      : `<p class="muted">${L('You said:','你说的是：')} <i>${esc(holder.value)}</i></p><p class="muted">${L(`${pct}% match. The <span class="w-miss">red words</span> were missing. Listen and try again.`, `匹配 ${pct}%。<span class="w-miss">红色的词</span>没说到。先听一遍，再试一次。`)}</p>`);
+  }, {continuous:false, lang:'en-US'});
+});
+function nativeSpeechLang(){
+  if(S.lang === 'zh' || /chinese|mandarin|中文/i.test(S.native)) return 'zh-CN';
+  const map = {spanish:'es-ES', korean:'ko-KR', japanese:'ja-JP', french:'fr-FR', german:'de-DE', portuguese:'pt-BR', vietnamese:'vi-VN', russian:'ru-RU', arabic:'ar-SA', hindi:'hi-IN'};
+  const k = Object.keys(map).find(k => new RegExp(k, 'i').test(S.native || ''));
+  return k ? map[k] : 'en-US';
+}
+$('#howMic').addEventListener('click', () => toggleMic($('#howMic'), $('#howIn'), null, {continuous:false, lang: nativeSpeechLang()}));
+$('#howGo').addEventListener('click', async () => {
+  const t = $('#howIn').value.trim(); if(!t) return;
+  const out = $('#howOut'); out.innerHTML = `<p class="loading">${L('Thinking how to say it…','正在想怎么说…')}</p>`;
+  $('#howGo').disabled = true;
+  try{
+    const r = await askAI(HOW_SYSTEM(), [{role:'user', parts:[{text:t}]}]);
+    const saveData = esc(JSON.stringify({word: r.english, meaning: r.meaning || t, example: ''}));
+    out.innerHTML = `
+      <div class="card">
+        <h3>${L('Say it like this','这样说')}</h3>
+        <div class="say big">${esc(r.english)} <button class="icon" data-say="${esc(r.english)}">🔊</button> <button class="icon" data-say="${esc(r.english)}" data-slow="1">🐢</button></div>
+        ${r.simple ? `<h3>${L('Even simpler','更简单的说法')}</h3><div class="say">${esc(r.simple)} <button class="icon" data-say="${esc(r.simple)}">🔊</button></div>` : ''}
+        <p>${esc(r.meaning)}</p>
+        <div class="chips"><div class="chip">${L('Save this sentence','把这句存起来')} <button class="save${hasWord(r.english) ? ' done' : ''}" data-v="${saveData}">${hasWord(r.english) ? L('saved','已存') : L('+ save','+ 存')}</button></div></div>
+        ${practiceBox(r.english)}
+      </div>
+      ${r.words && r.words.length ? `<div class="card"><h3>${L('Key words','关键词')}</h3>${vocabChips(r.words)}</div>` : ''}
+      ${r.pronunciation ? `<div class="card"><h3>${L('Pronunciation tips','发音提示')}</h3><p>${esc(r.pronunciation)}</p></div>` : ''}
+      ${r.dialog && r.dialog.length ? `<div class="card"><h3>${L('Example conversation','对话例子')}</h3>${r.dialog.map(d => `<div class="say"><b>${esc(d.who)}:</b> ${esc(d.en)} <button class="icon" data-say="${esc(d.en)}">🔊</button>${d.tr ? `<div class="zh">${esc(d.tr)}</div>` : ''}</div>`).join('')}</div>` : ''}
+      ${r.more && r.more.length ? `<div class="card"><h3>${L('Other ways to say it','其他说法')}</h3>${r.more.map(x => `<div class="say">${esc(x)} <button class="icon" data-say="${esc(x)}">🔊</button></div>`).join('')}</div>` : ''}`;
+    if(S.autoSpeak) speak(r.english);
+  }catch(e){ out.innerHTML = ''; showErr(e.message); }
+  finally{ $('#howGo').disabled = false; }
+});
+
+/* ---------- LANGUAGE (English / 中文) ---------- */
+const PN = '<span class="pn"></span>';
+const STATIC_ZH = [
+  ['header h1', '咖啡时间英语'],
+  ['header .sub', '练习每天都会听到的英语'],
+  ['#nav [data-tab=talk]', '💬 对话'], ['#nav [data-tab=howto]', '🗣️ 怎么说？'], ['#nav [data-tab=organize]', '🧩 说得更好'],
+  ['#nav [data-tab=decode]', '🔍 他们什么意思？'], ['#nav [data-tab=words]', '📒 单词本'], ['#nav [data-tab=memory]', '🧠 记忆'], ['#nav [data-tab=settings]', '⚙️ 设置'],
+  ['#pick .card h2', '选一个对话'],
+  ['#pick .card p.muted', `🎯 <b>口语练习</b>：${PN} 问你问题，你回答，${PN} 帮你改正，然后你把更好的说法再说一遍。<br>你的对话老师是 ${PN}（可以在 ⚙️ 设置里改）。点 🎤 说话或者打字。每说一句，都会看到改正后的句子和地道的说法。<br>💡 不会说的时候，可以直接用中文问："……用英语怎么说？"（点下面的 <b>🎤 EN</b> 换成 <b>🎤 中文</b> 就可以说中文。）`],
+  ['label[for=customTopic]', '或者自己选一个话题'], ['#customTopic', '例如：我的孙子、我做的菜、去公园散步', 'placeholder'], ['#customGo', '开始'],
+  ['#hintBtn', '💡 我可以说什么？'], ['#endBtn', '↩ 换个话题'],
+  ['#tab-howto h2', '🗣️ 怎么说？'],
+  ['#tab-howto p.muted', '用中文打字或者说出来你想说的话，老师会教你地道的英语说法、关键词、发音提示和一段小对话，然后带你大声练习。'],
+  ['#howIn', '例如：我想把这件衣服退了 / 这个多少钱？ / 我头疼', 'placeholder'], ['#howGo', '教我说'],
+  ['#tab-organize h2', '🧩 说得更好'],
+  ['#tab-organize p.muted', '把你的想法随便写下来：中文、不完整的英文或者混在一起都可以。会帮你整理成清楚的英语口语，还有需要的词和连接词。'],
+  ['#orgIn', '例如：我觉得 free will 可能不存在，因为大脑先做决定……', 'placeholder'], ['#orgGo', '帮我整理'],
+  ['#tab-decode h2', '🔍 他们什么意思？'],
+  ['#tab-decode p.muted', '把别人说的、你没听懂的话写下来，哪怕只记得一半。会告诉你意思、俚语或文化背景、语气，还有怎么回答。'],
+  ['#decIn', '例如："What a bummer, let\'s grab a bite later."', 'placeholder'], ['label[for=decCtx]', '场景（可选）'], ['#decCtx', '例如：在午饭时，他们在笑', 'placeholder'], ['#decGo', '解释一下'],
+  ['#reviewBtn', '复习卡片'], ['#exportBtn', '导出'], ['#t-import', '导入'],
+  ['#tab-words .card p.muted', '练习时存下的单词和短语都在这里。每天复习几个，就能记住。'],
+  ['#againBtn', '还在学'], ['#gotBtn', '我会了 ✓'],
+  ['#tab-memory .card:nth-of-type(1) h2', `🧠 ${PN} 记得的关于你的事`],
+  ['#tab-memory .card:nth-of-type(1) p.muted', `每次对话后，${PN} 会写一些关于你的简短笔记，下次对话前会先看。你可以在这里修改或删除。这些笔记只存在这台设备的浏览器里，对话时会发给 AI。`],
+  ['#t-memoryOn', `让 ${PN} 记住我`], ['label[for=memName]', '你的名字'], ['#memName', '老师怎么称呼你？', 'placeholder'],
+  ['label[for=memAdd]', `告诉 ${PN} 一些关于你的事`], ['#memAdd', '例如：我有两个孙子。我喜欢做饭。', 'placeholder'], ['#memAddBtn', '添加'],
+  ['#tab-memory .card:nth-of-type(2) h2', '📜 以前的对话'],
+  ['#tab-memory .card:nth-of-type(3) h2', '备份'],
+  ['#tab-memory .card:nth-of-type(3) p.muted', '手机和电脑各自保存自己的记忆。要换设备，可以在一台设备上生成备份文件，再到另一台设备上恢复。备份包括记忆、以前的对话和单词本，但不包括 API 密钥。'],
+  ['#backupAll', '生成备份文件'], ['#t-restore', '从备份恢复'], ['#forgetAll', '全部忘掉'],
+  ['#forgetConfirm p', `<b>删除 ${PN} 的记忆和这台设备上所有以前的对话吗？</b>单词本会保留。`], ['#forgetYes', '确定忘掉'], ['#forgetNo', '取消'],
+  ['#welcome h2', '👋 第一次设置（2 分钟）'],
+  ['#welcome ol', '<li>打开 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio → API keys</a>，用 Google 账号登录。</li><li>点 <b>Create API key</b>（创建 API 密钥），然后复制。免费，不需要信用卡。</li><li>粘贴到下面，点 <b>保存并测试</b>。</li>'],
+  ['#welcome p.muted', '密钥只保存在这个浏览器里。使用 Google 免费版时，Google 可能会用你发送的内容来改进产品，所以不要输入私人或敏感信息。'],
+  ['#tab-settings .card:nth-of-type(2) h2', '👤 关于我和我的老师'],
+  ['#tab-settings .card:nth-of-type(2) p.muted', '每台手机或电脑都有自己的设置，所以家里每个人都可以有自己的老师。'],
+  ['label[for=about]', '关于我：我的情况，在哪里用英语'], ['#about', '例如：我刚来美国，帮女儿带孩子。想和邻居、医生、超市的人简单交流。', 'placeholder'],
+  ['label[for=goalsIn]', '我想练习什么'], ['#goalsIn', '例如：打招呼、买东西、看医生、和邻居聊天。', 'placeholder'],
+  ['label[for=pname]', '老师的名字'], ['label[for=persona]', '老师的风格'],
+  ['#persona option[value=coworker]', '友好的美国同事（轻松、日常口语）'], ['#persona option[value=teacher]', '耐心的老师（说得清楚，解释多一些）'],
+  ['#persona option[value=friend]', '有趣的朋友（爱开玩笑，很多俚语）'], ['#persona option[value=british]', '友好的英国同事（英式英语）'], ['#persona option[value=mentor]', '有思想的导师（深入聊天，词汇更丰富）'],
+  ['#saveAbout', '保存'],
+  ['label[for=apiKey]', 'Gemini API 密钥'], ['#apiKey', '把密钥粘贴到这里', 'placeholder'], ['#saveKey', '保存并测试'],
+  ['label[for=model]', 'AI 模型'], ['#model + p.muted', '测试密钥后会自动选择。"flash" 模型速度快，免费额度也多。'],
+  ['label[for=level]', '我的英语水平'],
+  ['#level option[value=Beginner]', '入门'], ['#level option[value=Intermediate]', '中级'], ['#level option[value=Upper-intermediate]', '中高级'], ['#level option[value=Advanced]', '高级'],
+  ['label[for=native]', '我的母语（可选）'], ['#native', '例如：中文', 'placeholder'],
+  ['label[for=voice]', `${PN} 的声音`], ['label[for=rate]', '语速：<span id="rateVal">1.0</span>'],
+  ['#t-autoSpeak', `自动朗读 ${PN} 的回答`], ['#t-autoSend', '说完后自动发送'], ['#t-repeatMode', '在 🎯 口语练习里，让我把更好的说法再说一遍'],
+  ['#saveSettings', '保存设置'],
+  ['#tab-settings .card:nth-of-type(4) h2', '备用 AI（可选）'],
+  ['#tab-settings .card:nth-of-type(4) > p.muted', 'Gemini 忙的时候，应用会先自动重试并换别的模型。如果还是经常显示"忙"，可以在这里加一个免费的备用服务。只有 Gemini 不能用时才会用它。'],
+  ['label[for=backup]', '备用服务'], ['label[for=backupKey]', '备用 API 密钥'], ['label[for=backupModel]', '备用模型'], ['#testBackup', '保存并测试'],
+  ['#tab-settings .card:nth-of-type(5) h2', '提示'],
+  ['#tab-settings .card:nth-of-type(5) p.muted', '• 电脑上用 <b>Chrome</b> 或 <b>Edge</b>，安卓手机用 <b>Chrome</b>，苹果手机用 <b>Safari</b>。<br>• 在手机上，打开浏览器菜单，点 <b>添加到主屏幕</b>，就能像应用一样打开。<br>• 如果 🎤 不能用，点地址栏左边的图标，允许使用麦克风。<br>• 如果看到"免费额度"的提示，等一分钟再试；免费版每分钟和每天的次数有限制。'],
+  ['#talkIn', '说或者输入你的回答…', 'placeholder'], ['#sendBtn', '发送']
+];
+function applyLang(){
+  STATIC_ZH.forEach(([sel, zh, attr]) => {
+    const el = document.querySelector(sel); if(!el) return;
+    const key = attr ? 'en_' + attr : 'en';
+    if(el.dataset[key] === undefined) el.dataset[key] = attr ? (el.getAttribute(attr) || '') : el.innerHTML;
+    const v = S.lang === 'zh' ? zh : el.dataset[key];
+    if(attr) el.setAttribute(attr, v); else el.innerHTML = v;
+  });
+  document.documentElement.lang = S.lang === 'zh' ? 'zh-CN' : 'en';
+  $('#langBtn').textContent = S.lang === 'zh' ? 'English' : '中文';
+  $('#rateVal').textContent = Number(S.rate).toFixed(2);
+  paintName(); paintHands(); paintMicLang(); renderScenarios();
+  if(!$('#tab-words').classList.contains('hidden')) renderWords();
+  if(!$('#tab-memory').classList.contains('hidden')) renderMemory();
+}
+$('#langBtn').addEventListener('click', () => {
+  S.lang = S.lang === 'zh' ? 'en' : 'zh';
+  if(S.lang === 'zh' && !S.native){ S.native = 'Chinese'; $('#native').value = 'Chinese'; }
+  store.set('settings', S); applyLang();
+  if(convo) note(L('The new language is used from the next conversation.', '新语言从下一次对话开始使用。'));
+});
+
+/* ---------- ABOUT ME / TEACHER ---------- */
+function fillAbout(){
+  $('#about').value = S.about || ''; $('#goalsIn').value = S.goals || '';
+  $('#pname').value = S.pname || ''; $('#persona').value = S.persona || 'coworker';
+}
+$('#saveAbout').addEventListener('click', () => {
+  S.about = $('#about').value.trim(); S.goals = $('#goalsIn').value.trim();
+  S.pname = $('#pname').value.trim() || 'Alex'; S.persona = $('#persona').value;
+  store.set('settings', S); paintName(); fillAbout();
+  $('#aboutMsg').textContent = L(`Saved ✓ ${PNAME()} will use this from your next conversation.`, `已保存 ✓ 下次对话开始生效。`);
+  setTimeout(() => $('#aboutMsg').textContent = '', 4000);
 });
 
 /* ---------- init ---------- */
 renderScenarios();
 fillSettings();
+fillAbout();
+paintName();
 fillBackup();
 paintHands();
+applyLang();
 loadVoices();
 if('speechSynthesis' in window) speechSynthesis.onvoiceschanged = loadVoices;
 if(!S.apiKey) showTab('settings');
