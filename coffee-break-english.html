@@ -695,33 +695,76 @@ document.addEventListener('click', () => {
   try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
 }, {capture:true});
 let rec = null, recBtn = null;
+const IN_APP = /MicroMessenger|WeChat|FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent);
+const IOS_NOT_SAFARI = /iPhone|iPad|iPod/i.test(navigator.userAgent) && /CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
+function micHelp(){
+  if(IN_APP) return L('Voice input does not work inside WeChat or other in-app browsers. Tap ⋯ at the top right and choose "Open in browser" (Safari on iPhone, Chrome on Android).', '在微信等应用里打开时不能用语音。请点右上角 ⋯，选择"在浏览器中打开"（苹果手机用 Safari，安卓手机用 Chrome）。');
+  if(IOS_NOT_SAFARI) return L('On iPhone, voice input only works in Safari. Please open the app in Safari.', '苹果手机上只有 Safari 能用语音输入。请用 Safari 打开这个应用。');
+  return L('Voice input isn\'t supported in this browser. Please use Chrome (Android/computer) or Safari (iPhone), or just type.', '这个浏览器不支持语音输入。请用 Chrome（安卓或电脑）或 Safari（苹果手机），或者直接打字。');
+}
+function resetMicBtn(b){ if(b){ b.classList.remove('on'); b.textContent = '🎤'; } }
 function toggleMic(btn, ta, onDone, opts){
-  if(!SR){ showErr(L('Voice input isn\'t supported in this browser. Please use Chrome, Edge or Safari, or just type.', '这个浏览器不支持语音输入。请用 Chrome、Edge 或 Safari，或者直接打字。')); return; }
-  if(rec){ rec.stop(); return; }
+  if(!SR){ showErr(micHelp()); return; }
+  if(rec){
+    if(recBtn === btn){ try{ rec.stop(); }catch(e){} return; }
+    // A mic is still running somewhere else (e.g. on another page): cancel it and start this one.
+    const old = rec; rec = null;
+    try{ old.onend = null; old.onerror = null; old.abort(); }catch(e){}
+    resetMicBtn(recBtn);
+  }
   speechSynthesis && speechSynthesis.cancel();
+  const lang = (opts && opts.lang) || 'en-US';
   const base = ta.value ? ta.value.trim() + ' ' : '';
-  let finalText = '';
-  rec = new SR();
-  rec.lang = (opts && opts.lang) || 'en-US'; rec.interimResults = true; rec.continuous = (opts && 'continuous' in opts) ? opts.continuous : (!IS_MOBILE && !S.handsFree);
-  recBtn = btn; btn.classList.add('on'); btn.textContent = '■';
-  rec.onresult = e => {
+  let finalText = '', started = false;
+  const r = new SR();
+  rec = r; recBtn = btn;
+  r.lang = lang; r.interimResults = true;
+  r.continuous = (opts && 'continuous' in opts) ? opts.continuous : (!IS_MOBILE && !S.handsFree);
+  btn.classList.add('on'); btn.textContent = '■';
+  r.onstart = r.onaudiostart = r.onspeechstart = () => { started = true; };
+  r.onresult = e => {
+    started = true;
     let interim = '';
     for(let i = e.resultIndex; i < e.results.length; i++){
-      const r = e.results[i];
-      if(r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript;
+      const x = e.results[i];
+      if(x.isFinal) finalText += x[0].transcript; else interim += x[0].transcript;
     }
     ta.value = base + finalText + interim;
+    if(ta.dispatchEvent) ta.dispatchEvent(new Event('input'));
   };
-  rec.onerror = e => {
-    if(e.error === 'not-allowed' || e.error === 'service-not-allowed') showErr(L('The microphone is blocked. Click the icon at the left of the address bar, allow the microphone, and try again.', '麦克风被阻止了。点地址栏左边的图标，允许使用麦克风，然后再试一次。'));
-    else if(e.error === 'no-speech'){ if(!S.handsFree) showErr(L('I didn\'t hear anything. Try again, a little closer to the mic.', '没有听到声音。请靠近麦克风再试一次。')); }
-    else if(e.error === 'network') showErr(L('Voice input needs an internet connection.', '语音输入需要联网。'));
+  const zhLang = /^zh/.test(lang);
+  r.onerror = e => {
+    const c = e.error;
+    if(c === 'aborted') return;
+    if(c === 'not-allowed' || c === 'service-not-allowed'){
+      showErr(/iPhone|iPad|iPod/i.test(navigator.userAgent)
+        ? L('The microphone or dictation is turned off. On iPhone: Settings → Safari → Microphone → Allow, and Settings → General → Keyboard → Enable Dictation. Then try again.', '麦克风或听写被关闭了。苹果手机：设置 → Safari → 麦克风 → 允许；再到 设置 → 通用 → 键盘 → 打开"启用听写"。然后再试一次。')
+        : L('The microphone is blocked. Tap the icon at the left of the address bar, allow the microphone, and try again.', '麦克风被阻止了。点地址栏左边的图标，允许使用麦克风，然后再试一次。'));
+    }
+    else if(c === 'no-speech'){ if(!S.handsFree) showErr(L('I didn\'t hear anything. Try again, a little closer to the mic.', '没有听到声音。请靠近麦克风再试一次。')); }
+    else if(c === 'network') showErr(L('Voice input needs an internet connection.', '语音输入需要联网。'));
+    else if(c === 'audio-capture') showErr(L('No microphone was found. Check that no other app is using it.', '找不到麦克风。请检查是不是别的应用正在用麦克风。'));
+    else if(c === 'language-not-supported') showErr(zhLang
+      ? L('This phone can\'t recognise Chinese speech here. Tip: tap the text box and use the 🎤 on your phone\'s keyboard to speak Chinese instead.', '这台手机在这里不能识别中文语音。小技巧：点一下输入框，用手机键盘上的 🎤 说中文，一样可以。')
+      : L('This language isn\'t supported for voice input here.', '这里不支持这种语言的语音输入。'));
+    else showErr(L('Voice input stopped (' + c + '). Please try again, or type.', '语音输入停止了（' + c + '）。请再试一次，或者打字。'));
   };
-  rec.onend = () => {
-    btn.classList.remove('on'); btn.textContent = '🎤'; rec = null;
+  r.onend = () => {
+    if(rec === r){ rec = null; resetMicBtn(btn); }
     if(onDone && finalText.trim()) onDone();
   };
-  try{ rec.start(); }catch(e){ rec = null; btn.classList.remove('on'); btn.textContent = '🎤'; }
+  try{ r.start(); }
+  catch(e){ rec = null; resetMicBtn(btn); showErr(L('The microphone could not start. Please try again.', '麦克风没有启动。请再试一次。')); return; }
+  // If nothing has started after 5 seconds, reset the button and explain.
+  setTimeout(() => {
+    if(rec === r && !started){
+      try{ r.onend = null; r.abort(); }catch(e){}
+      rec = null; resetMicBtn(btn);
+      showErr(zhLang
+        ? L('Chinese voice input didn\'t start on this phone. Tip: tap the text box and use the 🎤 on your phone\'s keyboard instead.', '这台手机上的中文语音没有启动。小技巧：点一下输入框，用手机键盘上的 🎤 说中文。')
+        : L('The microphone didn\'t start. Please check the microphone permission and try again.', '麦克风没有启动。请检查麦克风权限，再试一次。'));
+    }
+  }, 5000);
 }
 
 /* ---------- errors ---------- */
