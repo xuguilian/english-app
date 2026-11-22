@@ -772,7 +772,7 @@ document.addEventListener('click', () => {
   try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
 }, {capture:true});
 let rec = null, recBtn = null;
-const APP_VERSION = '1.13';
+const APP_VERSION = '1.14';
 const IN_APP = /MicroMessenger|WeChat|FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent);
 const IOS_NOT_SAFARI = /iPhone|iPad|iPod/i.test(navigator.userAgent) && /CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
 function micHelp(){
@@ -1618,7 +1618,7 @@ $('#forgetYes').addEventListener('click', () => {
   saveMemory(); saveSessions(); $('#forgetConfirm').classList.add('hidden'); renderMemory();
 });
 $('#backupAll').addEventListener('click', () => {
-  const s2 = Object.assign({}, S); delete s2.apiKey; delete s2.backupKey;
+  const s2 = Object.assign({}, S); ['apiKey', 'backupKey', 'syncToken', 'syncGistId'].forEach(k => delete s2[k]);   // never put keys or tokens in a backup file
   const blob = new Blob([JSON.stringify({app:'coffee-break-english', version:1, memory, sessions, words, settings:s2}, null, 2)], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'coffee-english-backup-' + today() + '.json'; a.click();
