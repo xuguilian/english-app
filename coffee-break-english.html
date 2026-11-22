@@ -25,7 +25,7 @@
   nav{display:flex;gap:4px;overflow-x:auto;padding-bottom:8px}
   nav button{border:0;background:transparent;padding:8px 12px;border-radius:999px;font-size:14px;color:var(--muted);cursor:pointer;white-space:nowrap}
   nav button.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
-  main{padding:18px 0 140px}
+  main{padding:18px 0 40px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
   h2{font-size:17px;margin:0 0 6px}
   h3{font-size:14px;margin:12px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
@@ -38,6 +38,8 @@
   .btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
   .btn.small{padding:5px 10px;font-size:13px}
   .btn.warm{background:var(--warm)}
+  .btn.ghost.on{background:var(--accent);color:#fff}
+  .fb.mini{font-size:13px;padding:8px 12px}
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   label.row{flex-wrap:nowrap;align-items:flex-start} label.row input[type=checkbox]{flex:none;margin-top:4px;width:18px;height:18px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
@@ -58,7 +60,8 @@
   .w-ok{color:var(--accent)} .w-miss{color:#c0392b;text-decoration:underline}
   .good{color:var(--accent);font-weight:700}
   @media (max-width:560px){ .msg,.fb,.extras{max-width:94%} main{padding-top:12px} .card{padding:14px} }
-  .chat{display:flex;flex-direction:column;gap:10px}
+  .chat{display:flex;flex-direction:column;gap:10px;padding-bottom:18px}
+  .chat > div, #hints{scroll-margin-bottom:120px}
   .msg{max-width:85%;padding:10px 14px;border-radius:14px}
   .msg.ai{background:#fff;border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:4px}
   .msg.me{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
@@ -76,7 +79,7 @@
   .chip .save{margin-left:6px;border:0;background:var(--accent-soft);color:var(--accent);border-radius:6px;padding:1px 7px;cursor:pointer;font-size:12px;font-weight:700}
   .chip .save.done{background:#eee;color:#888;cursor:default}
   .chip .tr{color:var(--muted)}
-  .bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 0 calc(10px + env(safe-area-inset-bottom));z-index:6}
+  .bar{position:sticky;left:0;right:0;bottom:0;box-shadow:0 -4px 12px rgba(0,0,0,.04);background:var(--card);border-top:1px solid var(--line);padding:10px 0 calc(10px + env(safe-area-inset-bottom));z-index:6}
   .bar .wrap{display:flex;gap:8px;align-items:flex-end}
   .bar textarea{min-height:46px;max-height:140px}
   .mic{width:46px;height:46px;border-radius:50%;border:0;background:var(--warm);color:#fff;font-size:20px;cursor:pointer;flex:none}
@@ -143,6 +146,7 @@
       <div class="row" style="justify-content:space-between;margin-bottom:10px">
         <div><b id="convoTitle"></b></div>
         <div class="row">
+          <button class="btn ghost small" id="handsBtn">🎧 Hands-free</button>
           <button class="btn ghost small" id="hintBtn">💡 What could I say?</button>
           <button class="btn ghost small" id="endBtn">↩ New topic</button>
         </div>
@@ -245,7 +249,7 @@
 
       <label class="row" style="font-weight:400"><input type="checkbox" id="autoSpeak" checked> Read Alex's replies out loud automatically</label>
       <label class="row" style="font-weight:400"><input type="checkbox" id="autoSend"> Send automatically when I stop speaking</label>
-      <label class="row" style="font-weight:400"><input type="checkbox" id="repeatMode" checked> After a correction, ask me to say the better version again</label>
+      <label class="row" style="font-weight:400"><input type="checkbox" id="repeatMode" checked> In 🎯 speaking drills, ask me to say the better version again</label>
 
       <div class="row" style="margin-top:12px"><button class="btn" id="saveSettings">Save settings</button><span id="setMsg" class="muted"></span></div>
     </div>
@@ -297,7 +301,7 @@ const store = {
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let S = Object.assign({apiKey:'', model:'gemini-2.5-flash', level:'Upper-intermediate', native:'', voice:'', rate:1, autoSpeak:true, autoSend:false, repeatMode:true, models:null, backup:'none', backupKey:'', backupModel:''}, store.get('settings', {}));
+let S = Object.assign({apiKey:'', model:'gemini-2.5-flash', level:'Upper-intermediate', native:'', voice:'', rate:1, autoSpeak:true, autoSend:false, repeatMode:true, handsFree:false, models:null, backup:'none', backupKey:'', backupModel:''}, store.get('settings', {}));
 let words = store.get('words', []);
 
 /* ---------- scenarios ---------- */
@@ -333,13 +337,19 @@ How to talk:
 - If the learner seems lost or asks what something means, explain simply, then carry on.
 - For deep topics, introduce one key idea or term at a time.
 
+- The learner's messages come from speech recognition, so ignore missing punctuation and capital letters. Don't correct them; another tutor does that. Just keep the conversation going.
+
 Respond ONLY with JSON in this shape:
-{"feedback": null OR {"corrected": string (the learner's message with grammar and word choice fixed; identical if already correct), "natural": string (how a native speaker would casually say it in this situation), "explanation": string (one or two short sentences on the most useful fix, or brief praise), "perfect": boolean},
- "reply": string (what Alex says),
- "phrases": [{"phrase": string, "meaning": string}] (0-3 idioms, slang or phrasal verbs that YOU used in your reply),
- "vocab": [${vocabSpec()}] (1-3 useful words or expressions for this topic that the learner could use in their next answer)}
-When the learner's message is exactly "[START]", set feedback to null and open the conversation naturally as Alex.`;
+{"reply": string (what Alex says),
+ "phrases": [{"phrase": string, "meaning": string}] (0-2 idioms, slang or phrasal verbs that YOU used in your reply),
+ "vocab": [${vocabSpec()}] (0-2 useful words or expressions the learner could use in their next answer)}
+When the learner's message is exactly "[START]", open the conversation naturally as Alex.`;
 }
+const FB_SYSTEM = () => `You are a kind, concise English tutor for a non-native speaker (level ${S.level}). You'll see what a coworker said and the learner's spoken reply. The reply comes from speech recognition, so IGNORE punctuation, capitalization and obvious transcription glitches. Judge only grammar, word choice and naturalness. Respond ONLY with JSON:
+{"perfect": boolean (true if it is grammatical and sounds natural enough for casual speech),
+ "corrected": string (the learner's sentence with only the errors fixed),
+ "natural": string (how a native speaker would casually say the same thing, kept short),
+ "explanation": string (one short sentence on the most useful fix, or brief praise)}`;
 const HINT_SYSTEM = () => `You help a non-native English speaker (level ${S.level}) who is stuck in a conversation. Given the conversation so far, suggest 3 things they could say next: one simple, one medium, one more advanced and natural. Respond ONLY with JSON: {"options":[{"say": string, "why": string (very short: what this does, e.g. "shares an opinion and asks back")}]}`;
 const ORG_SYSTEM = () => `You help a non-native English speaker (level ${S.level}) turn rough ideas into clear, well-organized SPOKEN English, for casual or thoughtful conversations with coworkers. Their input may be broken English, ${S.native || 'their native language'}, or a mix. Respond ONLY with JSON:
 {"understood": string (one line: what they mean, in plain English),
@@ -360,20 +370,35 @@ const API = 'https://generativelanguage.googleapis.com/v1beta';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function aiError(msg, retryable){ const e = new Error(msg); e.retryable = retryable; return e; }
 
+// "Thinking" makes Gemini much slower. Ask for no/minimal thinking; if a model refuses an option, fall back.
+const thinkStep = {};
+function thinkOptions(m){
+  if(/gemini-2\.5-flash/.test(m) && !/lite/.test(m)) return [{thinkingBudget:0}, null];
+  if(/gemini-2\.5-pro/.test(m)) return [{thinkingBudget:128}, null];
+  if(/gemini-([3-9])/.test(m)) return [{thinkingLevel:'minimal'}, {thinkingLevel:'low'}, null];
+  return [null];
+}
 async function geminiCall(model, system, contents){
-  let res;
-  try{
-    res = await fetch(`${API}/models/${encodeURIComponent(model.replace(/^models\//,''))}:generateContent`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-goog-api-key':S.apiKey},
-      body: JSON.stringify({
-        systemInstruction:{parts:[{text:system}]},
-        contents,
-        generationConfig:{responseMimeType:'application/json', temperature:0.8}
-      })
-    });
-  }catch(e){ throw aiError('Could not reach Google. Check your internet connection.', true); }
-  const data = await res.json().catch(()=>({}));
+  const m = model.replace(/^models\//,'');
+  const opts = thinkOptions(m);
+  let res, data;
+  while(true){
+    const step = thinkStep[m] || 0;
+    const generationConfig = {responseMimeType:'application/json', temperature:0.8, maxOutputTokens:1500};
+    if(opts[step]) generationConfig.thinkingConfig = opts[step];
+    try{
+      res = await fetch(`${API}/models/${encodeURIComponent(m)}:generateContent`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-goog-api-key':S.apiKey},
+        body: JSON.stringify({systemInstruction:{parts:[{text:system}]}, contents, generationConfig})
+      });
+    }catch(e){ throw aiError('Could not reach Google. Check your internet connection.', true); }
+    data = await res.json().catch(()=>({}));
+    if(res.status === 400 && opts[step] && step < opts.length - 1 && !/API key/i.test(data.error?.message || '')){
+      thinkStep[m] = step + 1; continue;   // this model doesn't accept that thinking option; try the next one
+    }
+    break;
+  }
   if(!res.ok){
     const msg = data.error?.message || res.statusText;
     if(res.status === 400 && /API key/i.test(msg)) throw aiError('Your Gemini API key doesn\'t work. Check it in ⚙️ Settings.', false);
@@ -436,7 +461,7 @@ async function askAI(system, contents){
       }catch(e){
         errors.push(e);
         if(!e.retryable) break;
-        await sleep(i === 0 ? 1500 : 400);
+        await sleep(i === 0 ? 700 : 200);
       }
     }
   }
@@ -493,13 +518,18 @@ function loadVoices(){
   }
   sel.value = S.voice;
 }
-function speak(text, rate){
-  if(!('speechSynthesis' in window) || !text) return;
+function speak(text, rate, onEnd){
+  if(!('speechSynthesis' in window) || !text){ if(onEnd) onEnd(); return; }
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   const v = voices.find(v => v.name === S.voice);
   if(v){ u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
   u.rate = rate || S.rate;
+  if(onEnd){
+    let called = false;
+    const once = () => { if(!called){ called = true; setTimeout(onEnd, 250); } };
+    u.onend = once; u.onerror = once;
+  }
   speechSynthesis.speak(u);
 }
 
@@ -512,14 +542,14 @@ document.addEventListener('click', () => {
   try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
 }, {capture:true});
 let rec = null, recBtn = null;
-function toggleMic(btn, ta, onDone){
+function toggleMic(btn, ta, onDone, opts){
   if(!SR){ showErr('Voice input isn\'t supported in this browser. Please open this file in Google Chrome or Microsoft Edge, or just type.'); return; }
   if(rec){ rec.stop(); return; }
   speechSynthesis && speechSynthesis.cancel();
   const base = ta.value ? ta.value.trim() + ' ' : '';
   let finalText = '';
   rec = new SR();
-  rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = !IS_MOBILE;
+  rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = (opts && 'continuous' in opts) ? opts.continuous : (!IS_MOBILE && !S.handsFree);
   recBtn = btn; btn.classList.add('on'); btn.textContent = '■';
   rec.onresult = e => {
     let interim = '';
@@ -531,7 +561,7 @@ function toggleMic(btn, ta, onDone){
   };
   rec.onerror = e => {
     if(e.error === 'not-allowed' || e.error === 'service-not-allowed') showErr('The microphone is blocked. Click the icon at the left of the address bar, allow the microphone, and try again.');
-    else if(e.error === 'no-speech') showErr('I didn\'t hear anything. Try again, a little closer to the mic.');
+    else if(e.error === 'no-speech'){ if(!S.handsFree) showErr('I didn\'t hear anything. Try again, a little closer to the mic.'); }
     else if(e.error === 'network') showErr('Voice input needs an internet connection.');
   };
   rec.onend = () => {
@@ -593,15 +623,15 @@ function renderScenarios(){
 $('#scenarios').addEventListener('click', e => {
   const b = e.target.closest('.scen'); if(!b) return;
   const s = SCENARIOS.find(x => x.id === b.dataset.id);
-  startConvo(s.t, s.p);
+  startConvo(s.t, s.p, s.tag === 'drill');
 });
 $('#customGo').addEventListener('click', () => {
   const t = $('#customTopic').value.trim(); if(!t) return;
   startConvo('✏️ ' + t, `A friendly, curious conversation with a coworker about: "${t}". Introduce useful vocabulary for this topic naturally and help the learner express and organize their opinions.`);
 });
-function startConvo(title, prompt){
-  if(!S.apiKey){ showTab('settings'); showErr('First, add your free Gemini API key here.'); return; }
-  convo = {title, system: talkSystem(prompt), history: []};
+function startConvo(title, prompt, drill){
+  if(!S.apiKey && !(S.backup !== 'none' && S.backupKey)){ showTab('settings'); showErr('First, add your free Gemini API key here.'); return; }
+  convo = {title, system: talkSystem(prompt), history: [], drill: !!drill};
   $('#convoTitle').textContent = title;
   $('#chat').innerHTML = ''; $('#hints').innerHTML = '';
   $('#pick').classList.add('hidden'); $('#convo').classList.remove('hidden');
@@ -609,52 +639,105 @@ function startConvo(title, prompt){
   sendTurn('[START]');
 }
 $('#endBtn').addEventListener('click', () => {
-  convo = null; if(rec) rec.stop(); speechSynthesis && speechSynthesis.cancel();
+  convo = null; repeating = false; if(rec) rec.stop(); speechSynthesis && speechSynthesis.cancel();
   $('#convo').classList.add('hidden'); $('#pick').classList.remove('hidden'); $('#talkBar').classList.add('hidden');
 });
+// Keep the conversation pinned to the bottom (like a chat app) whenever anything changes size,
+// unless the person has scrolled up to read something.
+let pinned = true;
+function scrollEnd(){ window.scrollTo(0, document.documentElement.scrollHeight); }
+function toBottom(){ pinned = true; scrollEnd(); requestAnimationFrame(scrollEnd); }
+window.addEventListener('scroll', () => {
+  pinned = (window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 60;
+}, {passive:true});
+if('ResizeObserver' in window){
+  const ro = new ResizeObserver(() => { if(convo && pinned && !$('#tab-talk').classList.contains('hidden')) scrollEnd(); });
+  ro.observe(document.querySelector('main')); ro.observe(document.querySelector('#talkBar'));
+}
+window.addEventListener('resize', () => { if(convo && pinned) scrollEnd(); });
 function addEl(html, cls){
   const d = document.createElement('div'); d.className = cls; d.innerHTML = html;
   $('#chat').appendChild(d);
-  d.scrollIntoView({behavior:'smooth', block:'end'});
+  toBottom();
   return d;
 }
 let busy = false;
+function lastAlexLine(){
+  for(let i = convo.history.length - 1; i >= 0; i--){
+    const h = convo.history[i];
+    if(h.role === 'model'){ try{ return JSON.parse(h.parts[0].text).reply || ''; }catch(e){ return ''; } }
+  }
+  return '';
+}
+function feedbackEl(f, text, compact){
+  const d = document.createElement('div');
+  if(f.perfect){
+    d.className = 'fb ok mini';
+    d.innerHTML = `<div class="lbl">✓ Sounds good</div>${f.natural && norm(f.natural).join(' ') !== norm(text).join(' ') ? `Also natural: <b>${esc(f.natural)}</b> <button class="icon" data-say="${esc(f.natural)}">🔊</button>` : `<span class="muted">${esc(f.explanation)}</span>`}`;
+  }else{
+    d.className = 'fb' + (compact ? ' mini' : '');
+    d.innerHTML = `<div class="lbl">Better</div><b>${esc(f.corrected)}</b><div class="lbl" style="margin-top:6px">Native style</div><b>${esc(f.natural)}</b> <button class="icon" data-say="${esc(f.natural)}">🔊</button><br><span class="muted">${esc(f.explanation)}</span>`;
+  }
+  return d;
+}
+function listenNow(){
+  if(!S.handsFree || !convo || repeating || rec || busy) return;
+  $('#talkIn').value = '';
+  toggleMic($('#talkMic'), $('#talkIn'), sendFromBox, {continuous:false});
+}
 async function sendTurn(text){
   if(busy || !convo) return;
   busy = true; $('#sendBtn').disabled = true; $('#hints').innerHTML = '';
-  let meEl = null;
-  if(text !== '[START]') meEl = addEl(`<div class="who">You</div>${esc(text)}`, 'msg me');
-  const loading = addEl('Alex is typing…', 'loading');
-  convo.history.push({role:'user', parts:[{text}]});
+  const isStart = text === '[START]';
   const thisConvo = convo;
-  try{
-    const r = await askAI(convo.system, convo.history);
+  let meEl = null;
+  if(!isStart) meEl = addEl(`<div class="who">You</div>${esc(text)}`, 'msg me');
+  const loading = addEl('Alex is typing…', 'loading');
+  const alexSaid = lastAlexLine();
+  convo.history.push({role:'user', parts:[{text}]});
+
+  // Alex's reply and your correction are requested at the same time.
+  const replyP = askAI(convo.system, convo.history).then(r => ({r}), e => ({e}));
+  const fbP = isStart ? Promise.resolve(null)
+    : askAI(FB_SYSTEM(), [{role:'user', parts:[{text:`Coworker said: "${alexSaid || '(start of conversation)'}"\nLearner replied: "${text}"`}]}]).catch(() => null);
+
+  const finishBusy = () => { busy = false; $('#sendBtn').disabled = false; };
+  const showReply = res => {
     if(thisConvo !== convo) return;
-    convo.history.push({role:'model', parts:[{text: JSON.stringify(r)}]});
     loading.remove();
-    const f = r.feedback;
-    if(f && meEl){
-      if(f.perfect) addEl(`<div class="lbl">✓ Sounds good</div>${f.natural && f.natural !== text ? `Native style: <b>${esc(f.natural)}</b><br>` : ''}<span class="muted">${esc(f.explanation)}</span>`, 'fb ok');
-      else addEl(`<div class="lbl">Better</div><b>${esc(f.corrected)}</b><div class="lbl" style="margin-top:6px">How a native speaker might say it</div><b>${esc(f.natural)}</b> <button class="icon" data-say="${esc(f.natural)}">🔊</button><br><span class="muted">${esc(f.explanation)}</span>`, 'fb');
+    if(res.e){
+      convo.history.pop();
+      showErr(res.e.message, $('#chat'));
+      if(!isStart) $('#talkIn').value = text;
+      finishBusy(); return;
     }
-    const showReply = () => {
-      if(thisConvo !== convo) return;
-      addEl(`<div class="who">Alex</div>${esc(r.reply)}<div class="tools"><button class="icon" data-say="${esc(r.reply)}">🔊 Replay</button><button class="icon" data-say="${esc(r.reply)}" data-slow="1">🐢 Slow</button></div>`, 'msg ai');
-      let ex = '';
-      if(r.phrases && r.phrases.length) ex += `<div class="muted" style="margin-top:2px">Expressions Alex used</div>` + vocabChips(r.phrases);
-      if(r.vocab && r.vocab.length) ex += `<div class="muted" style="margin-top:6px">Words you could use next</div>` + vocabChips(r.vocab);
-      if(ex) addEl(ex, 'extras');
-      if(S.autoSpeak) speak(r.reply);
-    };
-    if(f && meEl && !f.perfect && S.repeatMode && f.natural) repeatPanel(f.natural, showReply);
-    else showReply();
-  }catch(e){
-    loading.remove();
-    convo.history.pop();
-    showErr(e.message, $('#chat'));
-    if(text !== '[START]') $('#talkIn').value = text;
-  }finally{
-    busy = false; $('#sendBtn').disabled = false;
+    const r = res.r;
+    convo.history.push({role:'model', parts:[{text: JSON.stringify(r)}]});
+    addEl(`<div class="who">Alex</div>${esc(r.reply)}<div class="tools"><button class="icon" data-say="${esc(r.reply)}">🔊 Replay</button><button class="icon" data-say="${esc(r.reply)}" data-slow="1">🐢 Slow</button></div>`, 'msg ai');
+    let ex = '';
+    if(r.phrases && r.phrases.length) ex += `<div class="muted" style="margin-top:2px">Expressions Alex used</div>` + vocabChips(r.phrases);
+    if(r.vocab && r.vocab.length) ex += `<div class="muted" style="margin-top:6px">Words you could use next</div>` + vocabChips(r.vocab);
+    if(ex) addEl(ex, 'extras');
+    finishBusy();
+    if(S.autoSpeak) speak(r.reply, null, S.handsFree ? listenNow : null);
+    else listenNow();
+  };
+
+  if(convo.drill && S.repeatMode && !isStart){
+    // Drill: correction first, then say it again, then Alex's next question (already loaded).
+    const f = await fbP;
+    if(thisConvo !== convo) return;
+    if(f){ meEl.after(feedbackEl(f, text, false)); }
+    if(f && !f.perfect && f.natural){
+      loading.classList.add('hidden');
+      repeatPanel(f.natural, async () => { loading.classList.remove('hidden'); showReply(await replyP); });
+    }else{
+      showReply(await replyP);
+    }
+  }else{
+    // Conversation: Alex answers as soon as possible; the correction appears quietly when ready.
+    fbP.then(f => { if(f && meEl && thisConvo === convo) { meEl.after(feedbackEl(f, text, true)); toBottom(); } });
+    showReply(await replyP);
   }
 }
 document.addEventListener('click', e => {
@@ -664,11 +747,22 @@ document.addEventListener('click', e => {
 function sendFromBox(){
   const t = $('#talkIn').value.trim(); if(!t) return;
   if(repeating){ showErr('First say the better version again (🎤 in the purple box), or tap "Skip".', $('#chat')); return; }
-  $('#talkIn').value = ''; sendTurn(t);
+  $('#talkIn').value = ''; growBox(); sendTurn(t);
 }
 $('#sendBtn').addEventListener('click', sendFromBox);
+function growBox(){ const t = $('#talkIn'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight + 2, 140) + 'px'; }
+$('#talkIn').addEventListener('input', growBox);
+setInterval(() => { if(rec && convo) growBox(); }, 300);
 $('#talkIn').addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendFromBox(); } });
-$('#talkMic').addEventListener('click', () => toggleMic($('#talkMic'), $('#talkIn'), S.autoSend ? sendFromBox : null));
+$('#talkMic').addEventListener('click', () => toggleMic($('#talkMic'), $('#talkIn'), (S.autoSend || S.handsFree) ? sendFromBox : null));
+function paintHands(){ $('#handsBtn').classList.toggle('on', !!S.handsFree); $('#handsBtn').textContent = S.handsFree ? '🎧 Hands-free: ON' : '🎧 Hands-free'; }
+$('#handsBtn').addEventListener('click', () => {
+  S.handsFree = !S.handsFree; store.set('settings', S); paintHands();
+  if(S.handsFree){
+    note('Hands-free is on: after Alex speaks, just talk. When you stop, your answer is sent automatically.');
+    listenNow();
+  }else if(rec){ rec.stop(); }
+});
 
 $('#hintBtn').addEventListener('click', async () => {
   if(!convo) return;
@@ -680,7 +774,7 @@ $('#hintBtn').addEventListener('click', async () => {
   try{
     const r = await askAI(HINT_SYSTEM(), [{role:'user', parts:[{text:'Conversation so far:\n' + transcript + '\n\nWhat could the learner say next?'}]}]);
     $('#hints').innerHTML = '<h3>Tap one to use it</h3>' + (r.options || []).map(o => `<div class="opt" data-use="${esc(o.say)}">${esc(o.say)}<small>${esc(o.why)}</small></div>`).join('');
-    $('#hints').scrollIntoView({behavior:'smooth', block:'end'});
+    toBottom();
   }catch(e){ $('#hints').innerHTML = ''; showErr(e.message, $('#chat')); }
 });
 $('#hints').addEventListener('click', e => {
@@ -712,6 +806,7 @@ function compareSpeech(target, said){
 }
 function repeatPanel(target, done){
   repeating = true;
+  $('#talkBar').classList.add('hidden');
   const el = addEl(`<div class="lbl">🔁 Your turn: say the better version</div>
     <div class="target">${esc(target)}</div>
     <div class="row"><button class="mic rmic" title="Speak">🎤</button>
@@ -723,6 +818,7 @@ function repeatPanel(target, done){
   let tries = 0, finished = false;
   const finish = () => {
     if(finished) return; finished = true; repeating = false;
+    if(convo) $('#talkBar').classList.remove('hidden');
     el.querySelectorAll('button').forEach(b => b.disabled = true);
     tgt.classList.remove('blur');
     done();
@@ -732,7 +828,7 @@ function repeatPanel(target, done){
   el.querySelector('.r-hide').onclick = () => tgt.classList.toggle('blur');
   el.querySelector('.r-skip').onclick = finish;
   mic.onclick = () => {
-    if(finished) return;
+    if(finished || rec) return;
     holder.value = '';
     toggleMic(mic, holder, () => {
       tries++;
@@ -741,11 +837,12 @@ function repeatPanel(target, done){
         res.innerHTML = `<p>${sc.html}</p><p class="good">✓ ${pct}%. Great, that's it!</p>`;
         setTimeout(finish, 1300);
       }else{
-        res.innerHTML = `<p>${sc.html}</p><p class="muted">You said: <i>${esc(holder.value)}</i></p><p class="muted">${pct}% match. The <span class="w-miss">red words</span> were missing. Listen once more and try again.${tries >= 3 ? ' Or tap Skip to move on; good effort!' : ''}</p>`;
+        res.innerHTML = `<p>${sc.html}</p><p class="muted">You said: <i>${esc(holder.value)}</i></p><p class="muted">${pct}% match. The <span class="w-miss">red words</span> were missing. Tap 🎤 and try again.${tries >= 3 ? ' Or tap Skip to move on; good effort!' : ''}</p>`;
       }
-    });
+    }, {continuous:false});
   };
-  if(S.autoSpeak) speak(target);
+  if(S.autoSpeak) speak(target, null, S.handsFree ? () => { if(!finished && !rec) mic.click(); } : null);
+  else if(S.handsFree) mic.click();
 }
 
 /* ---------- ORGANIZE ---------- */
@@ -927,6 +1024,7 @@ function fillBackup(){
 renderScenarios();
 fillSettings();
 fillBackup();
+paintHands();
 loadVoices();
 if('speechSynthesis' in window) speechSynthesis.onvoiceschanged = loadVoices;
 if(!S.apiKey) showTab('settings');
