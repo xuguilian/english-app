@@ -95,6 +95,23 @@
   .zh{font-size:14px;color:var(--muted);margin-top:4px;border-top:1px dashed var(--line);padding-top:4px}
   .big{font-size:20px;font-weight:700}
   .tag.basic{background:#fff4d6;color:#8a6200}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:10px}
+  .kpi{background:#fafaf7;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  .kpi .v{font-size:24px;font-weight:700;line-height:1.2}
+  .kpi .k{font-size:12px;color:var(--muted)}
+  .chart{margin:10px 0 16px}
+  .chart .ct{font-size:13px;font-weight:600;margin-bottom:4px}
+  .chart svg{width:100%;height:auto;display:block;overflow:visible}
+  .chart .bar{fill:var(--accent)}
+  .chart .bar:hover{fill:#24594b}
+  .chart .ax{font-size:10px;fill:var(--muted)}
+  .chart .vl{font-size:11px;fill:var(--ink);font-weight:600}
+  .level{display:inline-block;font-size:28px;font-weight:800;color:var(--accent);background:var(--accent-soft);border-radius:12px;padding:4px 14px;margin-right:10px}
+  .score{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:14px}
+  .score .n{width:110px;color:var(--muted)}
+  .score .track{flex:1;height:8px;background:#eee;border-radius:4px;overflow:hidden}
+  .score .fill{height:100%;background:var(--accent);border-radius:4px}
+  .score .num{width:34px;text-align:right;font-weight:600}
   .note{background:var(--accent-soft);color:var(--accent);border-radius:10px;padding:8px 12px;margin:8px 0;font-size:13px}
   .err{background:#fdecea;color:#8a1f11;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px}
   .muted{color:var(--muted);font-size:13px}
@@ -128,6 +145,7 @@
       <button data-tab="organize">🧩 Say it better</button>
       <button data-tab="decode">🔍 What did they mean?</button>
       <button data-tab="words">📒 Word bank</button>
+      <button data-tab="progress">📈 Progress</button>
       <button data-tab="memory">🧠 Memory</button>
       <button data-tab="settings">⚙️ Settings</button>
     </nav>
@@ -233,6 +251,26 @@
     <div class="card" id="wordList"></div>
   </section>
 
+  <!-- PROGRESS -->
+  <section id="tab-progress" class="hidden">
+    <div class="card">
+      <h2 id="t-progH">📈 My progress</h2>
+      <p class="muted" id="t-progP">These numbers update by themselves every time you practise. "Answers that were already right" counts the answers that needed no correction.</p>
+      <div id="kpis" class="kpis"></div>
+    </div>
+    <div class="card">
+      <h2 id="t-weekH">Week by week</h2>
+      <div id="weekCharts"></div>
+    </div>
+    <div class="card">
+      <h2 id="t-repH">📝 AI progress report</h2>
+      <p class="muted" id="t-repP">About once a week, tap the button. The AI reads your recent answers and corrections, estimates your speaking level, and tells you what improved and what to work on. Your teacher then practises those points with you in every conversation.</p>
+      <button class="btn" id="repGo">Make a progress report</button>
+      <div id="repOut"></div>
+      <div id="repHist"></div>
+    </div>
+  </section>
+
   <!-- SETTINGS -->
   <section id="tab-memory" class="hidden">
     <div class="card">
@@ -316,6 +354,10 @@
         <option value="mentor">Thoughtful mentor (deeper talks, richer vocabulary)</option>
       </select>
       <div class="row" style="margin-top:12px"><button class="btn" id="saveAbout">Save</button><span id="aboutMsg" class="muted"></span></div>
+      <h3 id="t-showH">Show these</h3>
+      <p class="muted" id="t-showP">Untick what you don't need, and the app becomes simpler. This only changes what this person sees.</p>
+      <div id="showBox"></div>
+      <button class="btn ghost small" id="showReset" style="margin-top:6px">Use the suggested choice for my level</button>
     </div>
     <div class="card">
       <label for="apiKey">Gemini API key</label>
@@ -440,6 +482,21 @@ function paintName(){ document.querySelectorAll('.pn').forEach(e => e.textConten
 let words = store.get('words', []);
 let memory = Object.assign({name:'', facts:[], interests:[], goals:[], mistakes:[], topics:[]}, store.get('memory', {}));
 let sessions = store.get('sessions', []);   // [{id, title, date, turns:[{who, text, fb}], memDone}]
+var deviceId = (() => { try{ let d = localStorage.getItem('cbe_device'); if(!d){ d = Math.random().toString(36).slice(2, 10); localStorage.setItem('cbe_device', d); } return d; }catch(e){ return 'dev'; } })();
+let progress = Object.assign({days:{}, vocab:[]}, store.get('progress', {}));   // days[date][device] = {a: answers, j: checked, c: correct, w: words, v: vocabulary size}
+let reports = store.get('reports', []);
+function dayRec(){ const d = today(); progress.days[d] = progress.days[d] || {}; return progress.days[d][deviceId] = progress.days[d][deviceId] || {a:0, j:0, c:0, w:0, v:0}; }
+function logAnswer(text){
+  if(!text || isCJK(text) || /how (do|can|would) (i|you) say/i.test(text)) return;
+  const ws = norm(text), rec = dayRec();
+  rec.a++; rec.w += ws.length;
+  const set = new Set(progress.vocab);
+  ws.forEach(x => { if(/^[a-z][a-z']*$/.test(x)) set.add(x); });
+  progress.vocab = [...set].slice(-10000);
+  rec.v = Math.max(rec.v || 0, progress.vocab.length);
+  store.set('progress', progress);
+}
+function logFeedback(f){ if(!f) return; const rec = dayRec(); rec.j++; if(f.perfect) rec.c++; store.set('progress', progress); }
 function today(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 function saveMemory(){ store.set('memory', memory); }
 function saveSessions(){ if(sessions.length > 40) sessions = sessions.slice(0, 40); store.set('sessions', sessions); }
@@ -451,10 +508,10 @@ const SCENARIOS = [
   {id:'b-food', tag:'basic', t:'🍜 Ordering food', zt:'🍜 点餐', d:'Restaurant or coffee shop: order, ask, pay.', zd:'在餐厅或咖啡店点餐、提问、付款。', p:'A friendly server at a restaurant or coffee shop. Practise ordering food and drinks, asking simple questions about the menu, and paying, with very simple English.'},
   {id:'b-doctor', tag:'basic', t:'🏥 At the doctor', zt:'🏥 看医生', d:'Say how you feel, where it hurts, make appointments.', zd:'说哪里不舒服、预约、听懂医生的话。', p:'A kind doctor or clinic receptionist. Practise making an appointment, saying how you feel and where it hurts, and understanding simple instructions. Use very simple English.'},
   {id:'b-neighbor', tag:'basic', t:'🏡 Chatting with neighbours', zt:'🏡 和邻居聊天', d:'Weather, the garden, kids, weekend plans.', zd:'聊天气、花园、孩子、周末安排。', p:'A friendly neighbour chats outside the house. Talk about the weather, the garden, children and grandchildren, and weekend plans, with very simple English.'},
-  {id:'drill-basic', tag:'drill', t:'🎯 Q&A drill: simple questions', zt:'🎯 问答练习：简单问题', d:'Easy everyday questions; say the better version.', zd:'简单的日常问题，回答后再说一遍更好的说法。', p:'Run a very easy question-and-answer speaking drill for a beginner. Ask ONE short, simple question at a time about daily life (family, food, weather, hobbies, the day). React with a few simple words, then ask the next question.'},
+  {id:'drill-basic', tag:'drill', grp:'basic', t:'🎯 Q&A drill: simple questions', zt:'🎯 问答练习：简单问题', d:'Easy everyday questions; say the better version.', zd:'简单的日常问题，回答后再说一遍更好的说法。', p:'Run a very easy question-and-answer speaking drill for a beginner. Ask ONE short, simple question at a time about daily life (family, food, weather, hobbies, the day). React with a few simple words, then ask the next question.'},
   {id:'drill-daily', tag:'drill', t:'🎯 Q&A drill: everyday life', d:'Your teacher asks, you answer, then you say the better version.', p:'Run a question-and-answer speaking drill. Ask the learner ONE clear question at a time about everyday life (food, weekends, hometown, hobbies, habits, small opinions). After each answer, react in one short natural sentence, then ask the next question. Vary the questions and sometimes ask a natural follow-up to get a longer answer.'},
-  {id:'drill-work', tag:'drill', t:'🎯 Q&A drill: work small talk', d:'Questions coworkers really ask you.', p:'Run a question-and-answer speaking drill with questions coworkers really ask each other at work (fitted to the learner\'s job), like "How long have you been here?", "Any plans for the holidays?", "How is the project going?", "Did you catch the game?". Ask ONE question at a time, react briefly to each answer, then ask the next.'},
-  {id:'drill-deep', tag:'drill', t:'🎯 Q&A drill: deep questions', d:'Philosophy-style questions; give a reason and an example.', p:'Run a question-and-answer speaking drill with thought-provoking questions (e.g. Is it ever okay to lie? Would you want to live forever? What makes you the same person over time? Can science answer every question?). Ask ONE question at a time. After each answer, briefly react, encourage the learner to give a reason and an example, introduce one useful term if it fits, then ask the next question.'},
+  {id:'drill-work', tag:'drill', grp:'pro', t:'🎯 Q&A drill: work small talk', d:'Questions coworkers really ask you.', p:'Run a question-and-answer speaking drill with questions coworkers really ask each other at work (fitted to the learner\'s job), like "How long have you been here?", "Any plans for the holidays?", "How is the project going?", "Did you catch the game?". Ask ONE question at a time, react briefly to each answer, then ask the next.'},
+  {id:'drill-deep', tag:'drill', grp:'deep', t:'🎯 Q&A drill: deep questions', d:'Philosophy-style questions; give a reason and an example.', p:'Run a question-and-answer speaking drill with thought-provoking questions (e.g. Is it ever okay to lie? Would you want to live forever? What makes you the same person over time? Can science answer every question?). Ask ONE question at a time. After each answer, briefly react, encourage the learner to give a reason and an example, introduce one useful term if it fits, then ask the next question.'},
   {id:'coffee', tag:'daily', t:'☕ Coffee machine chat', d:'How\'s your week going? Being tired, Mondays, coffee.', p:'Casual chat at the office coffee machine. Talk about everyday things: how the week is going, being tired or busy, coffee, small complaints, plans for later. Use very typical small-talk expressions.'},
   {id:'lunch', tag:'daily', t:'🥪 Lunch with coworkers', d:'Food, restaurants, TV shows, funny stories.', p:'Lunch in the break room with coworkers. Talk about food, restaurants, TV shows, funny stories and everyday life, with typical lunch-table banter and jokes. Occasionally mention a common cultural reference and briefly explain it if the learner seems lost.'},
   {id:'weekend', tag:'daily', t:'🏖️ "How was your weekend?"', d:'Monday small talk: plans, hobbies, family, trips.', p:'Monday morning at work. Ask about the learner\'s weekend, share yours, talk about hobbies, family, trips and plans. Teach the learner how to give more than one-word answers and ask follow-up questions.'},
@@ -506,6 +563,11 @@ const FB_SYSTEM = () => `You are a kind, concise English tutor for a non-native 
  "corrected": string (the learner's sentence with only the errors fixed),
  "natural": string (how a native speaker would casually say the same thing, kept short),
  "explanation": string (one short sentence on the most useful fix, or brief praise)}${BEGINNER_NOTE()}${LANG_NOTE()}`;
+function focusBlock(){
+  const r = reports[0];
+  if(!r || !(r.work_on || []).length) return '';
+  return `\n\nFocus areas from the learner's latest progress report (estimated level ${r.level}). Without lecturing, create natural chances in the conversation for them to practise these, and gently model the correct forms:\n- ${r.work_on.join('\n- ')}`;
+}
 function memoryBlock(){
   if(!S.memoryOn) return '';
   const m = memory, out = [];
@@ -772,7 +834,7 @@ document.addEventListener('click', () => {
   try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
 }, {capture:true});
 let rec = null, recBtn = null;
-const APP_VERSION = '1.14';
+const APP_VERSION = '1.16';
 const IN_APP = /MicroMessenger|WeChat|FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent);
 const IOS_NOT_SAFARI = /iPhone|iPad|iPod/i.test(navigator.userAgent) && /CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
 function micHelp(){
@@ -1045,10 +1107,12 @@ document.addEventListener('click', e => {
 
 /* ---------- tabs ---------- */
 function showTab(name){
+  if(hiddenSet().tabs.includes(name)) name = 'talk';
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('main section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-' + name));
   $('#talkBar').classList.toggle('hidden', !(name === 'talk' && convo));
   if(name === 'words') renderWords();
+  if(name === 'progress') renderProgress();
   if(name === 'memory'){ renderMemory(); fillSync(); }
   window.scrollTo(0,0);
 }
@@ -1060,7 +1124,8 @@ function renderScenarios(){
   const basicFirst = S.level === 'Beginner';
   const list = SCENARIOS.filter(s => s.tag === 'basic' || s.id === 'drill-basic');
   const rest = SCENARIOS.filter(s => !(s.tag === 'basic' || s.id === 'drill-basic'));
-  const ordered = basicFirst ? list.concat(rest) : rest.concat(list);
+  const hid = hiddenSet().groups;
+  const ordered = (basicFirst ? list.concat(rest) : rest.concat(list)).filter(s => ![s.grp || s.tag, s.tag].some(g => hid.includes(g)));
   $('#scenarios').innerHTML = ordered.map(s => `<button class="scen" data-id="${s.id}"><span class="tag ${s.tag}">${L(TAGNAME[s.tag], TAGNAME_ZH[s.tag])}</span><b>${esc(scenTitle(s))}</b><span>${esc(scenDesc(s))}</span></button>`).join('');
 }
 $('#scenarios').addEventListener('click', e => {
@@ -1076,7 +1141,7 @@ function startConvo(title, prompt, drill){
   if(!S.apiKey && !(S.backup !== 'none' && S.backupKey)){ showTab('settings'); showErr(L('First, add your free Gemini API key here.', '请先在这里填好免费的 Gemini API 密钥。')); return; }
   const sess = {id: Date.now().toString(36), title, date: today(), turns: [], memDone: 0};
   sessions.unshift(sess);
-  convo = {title, system: talkSystem(prompt) + memoryBlock(), history: [], drill: !!drill, sess};
+  convo = {title, system: talkSystem(prompt) + memoryBlock() + focusBlock(), history: [], drill: !!drill, sess};
   $('#convoTitle').textContent = title;
   $('#chat').innerHTML = ''; $('#hints').innerHTML = '';
   $('#pick').classList.add('hidden'); $('#convo').classList.remove('hidden');
@@ -1161,7 +1226,7 @@ async function sendTurn(text, audio){
     meEl.innerHTML = `<div class="who">${L('You','你')}</div>${esc(text)}`;
     replyP = Promise.resolve(res);
   }
-  if(!isStart){ meTurn = {who:'me', text}; convo.sess.turns.push(meTurn); saveSessions(); }
+  if(!isStart){ meTurn = {who:'me', text}; convo.sess.turns.push(meTurn); saveSessions(); logAnswer(text); }
   convo.history.push({role:'user', parts:[{text}]});
 
   // Alex's reply and your correction are requested at the same time.
@@ -1195,7 +1260,7 @@ async function sendTurn(text, audio){
     // Drill: correction first, then say it again, then Alex's next question (already loaded).
     const f = await fbP;
     if(thisConvo !== convo) return;
-    if(f){ meEl.after(feedbackEl(f, text, false)); meTurn.fb = f; saveSessions(); }
+    if(f){ meEl.after(feedbackEl(f, text, false)); meTurn.fb = f; saveSessions(); logFeedback(f); }
     if(f && !f.perfect && f.natural){
       loading.classList.add('hidden');
       repeatPanel(f.natural, async () => { loading.classList.remove('hidden'); showReply(await replyP); });
@@ -1204,7 +1269,7 @@ async function sendTurn(text, audio){
     }
   }else{
     // Conversation: Alex answers as soon as possible; the correction appears quietly when ready.
-    fbP.then(f => { if(f && meEl && thisConvo === convo) { meEl.after(feedbackEl(f, text, true)); meTurn.fb = f; saveSessions(); toBottom(); } });
+    fbP.then(f => { if(f && meEl && thisConvo === convo) { meEl.after(feedbackEl(f, text, true)); meTurn.fb = f; saveSessions(); logFeedback(f); toBottom(); } });
     showReply(await replyP);
   }
 }
@@ -1433,7 +1498,7 @@ function readSettings(){
   const wasLevel = S.level;
   S.sttMode = $('#sttMode').value || 'auto';
   S.level = $('#level').value;
-  if(S.level !== wasLevel) renderScenarios(); S.native = $('#native').value.trim();
+  if(S.level !== wasLevel){ renderScenarios(); applyVisibility(); } S.native = $('#native').value.trim();
   S.voicePick = $('#voice').value || 'auto'; S.rate = parseFloat($('#rate').value);
   S.autoSpeak = $('#autoSpeak').checked; S.autoSend = $('#autoSend').checked; S.repeatMode = $('#repeatMode').checked;
   S.model = $('#model').value || S.model;
@@ -1641,6 +1706,187 @@ $('#level').addEventListener('change', () => {
   if($('#level').value === 'Beginner' && Number($('#rate').value) >= 1){ $('#rate').value = 0.85; $('#rateVal').textContent = '0.85'; }
 });
 
+/* ---------- PROGRESS ---------- */
+// Old conversations from before progress tracking existed are counted once.
+function backfillProgress(){
+  if(progress.backfilled) return;
+  sessions.forEach(sess => sess.turns.forEach(t => {
+    if(t.who !== 'me' || !t.text || isCJK(t.text)) return;
+    const d = sess.date || today();
+    progress.days[d] = progress.days[d] || {};
+    const rec = progress.days[d].past = progress.days[d].past || {a:0, j:0, c:0, w:0, v:0};
+    const ws = norm(t.text); rec.a++; rec.w += ws.length;
+    if(t.fb){ rec.j++; if(t.fb.perfect) rec.c++; }
+    const set = new Set(progress.vocab); ws.forEach(x => { if(/^[a-z][a-z']*$/.test(x)) set.add(x); }); progress.vocab = [...set];
+    rec.v = Math.max(rec.v, progress.vocab.length);
+  }));
+  progress.backfilled = true;
+  store.set('progress', progress);
+}
+function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function dayTotals(){
+  return Object.entries(progress.days).map(([d, devs]) => {
+    const t = {d, a:0, j:0, c:0, w:0, v:0};
+    Object.values(devs).forEach(r => { t.a += r.a || 0; t.j += r.j || 0; t.c += r.c || 0; t.w += r.w || 0; t.v = Math.max(t.v, r.v || 0); });
+    return t;
+  }).filter(t => t.a > 0).sort((x, y) => x.d < y.d ? -1 : 1);
+}
+function mondayOf(dstr){ const d = new Date(dstr + 'T12:00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return ymd(d); }
+function computeStats(){
+  const days = dayTotals();
+  const set = new Set(days.map(t => t.d));
+  let streak = 0; const cur = new Date();
+  if(!set.has(ymd(cur))) cur.setDate(cur.getDate() - 1);
+  while(set.has(ymd(cur))){ streak++; cur.setDate(cur.getDate() - 1); }
+  const weeks = [];
+  const start = new Date(mondayOf(today()) + 'T12:00:00');
+  for(let i = 7; i >= 0; i--){ const d = new Date(start); d.setDate(d.getDate() - 7 * i); weeks.push({key: ymd(d), a:0, j:0, c:0, w:0, days:0}); }
+  const byKey = Object.fromEntries(weeks.map(w => [w.key, w]));
+  days.forEach(t => { const w = byKey[mondayOf(t.d)]; if(w){ w.a += t.a; w.j += t.j; w.c += t.c; w.w += t.w; w.days++; } });
+  const last4 = weeks.slice(-4).reduce((s, w) => ({a: s.a + w.a, j: s.j + w.j, c: s.c + w.c, w: s.w + w.w}), {a:0, j:0, c:0, w:0});
+  return {
+    totalDays: days.length, streak, weeks,
+    totalAnswers: days.reduce((s, t) => s + t.a, 0),
+    thisWeek: weeks[weeks.length - 1].a,
+    accuracy: last4.j ? Math.round(100 * last4.c / last4.j) : null,
+    avgLen: last4.a ? (last4.w / last4.a) : null,
+    vocab: progress.vocab.length,
+    learned: words.filter(w => (w.known || 0) >= 3).length, saved: words.length
+  };
+}
+// A small single-series bar chart (one hue, value on the latest bar, tooltip on every bar).
+function barChart(title, weeks, valueOf, fmt){
+  const W = 320, H = 110, top = 16, bottom = 18, gap = 8, n = weeks.length;
+  const vals = weeks.map(valueOf);
+  const max = Math.max(1, ...vals.map(v => v || 0));
+  const bw = (W - gap * (n - 1)) / n;
+  let bars = '';
+  weeks.forEach((w, i) => {
+    const v = vals[i], x = i * (bw + gap);
+    const h = v ? Math.max(3, (H - top - bottom) * v / max) : 0;
+    const y = H - bottom - h, r = Math.min(4, h, bw / 2);
+    const label = w.key.slice(5).replace('-', '/');
+    const tip = `${L('Week of', '这周从')} ${label}${L('', '开始')}: ${v == null ? L('no data', '没有数据') : fmt(v)}`;
+    if(h > 0) bars += `<path class="bar" d="M${x},${H - bottom} V${y + r} Q${x},${y} ${x + r},${y} H${x + bw - r} Q${x + bw},${y} ${x + bw},${y + r} V${H - bottom} Z"><title>${esc(tip)}</title></path>`;
+    bars += `<rect x="${x}" y="${top}" width="${bw}" height="${H - top - bottom}" fill="transparent"><title>${esc(tip)}</title></rect>`;
+    if(i === n - 1 || i === 0) bars += `<text class="ax" x="${x + bw / 2}" y="${H - 4}" text-anchor="middle">${i === n - 1 ? L('this week', '本周') : label}</text>`;
+    if(i === n - 1 && v != null) bars += `<text class="vl" x="${x + bw / 2}" y="${y - 4}" text-anchor="middle">${esc(fmt(v))}</text>`;
+  });
+  bars += `<line x1="0" x2="${W}" y1="${H - bottom}" y2="${H - bottom}" stroke="#ddd" stroke-width="1"/>`;
+  return `<div class="chart"><div class="ct">${title}</div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}">${bars}</svg></div>`;
+}
+function renderProgress(){
+  backfillProgress();
+  const st = computeStats();
+  const kpi = (v, k) => `<div class="kpi"><div class="v">${v}</div><div class="k">${k}</div></div>`;
+  $('#kpis').innerHTML =
+    kpi(st.totalDays, L('days practised', '练习天数')) +
+    kpi(st.streak + (st.streak >= 3 ? ' 🔥' : ''), L('days in a row', '连续练习天数')) +
+    kpi(st.thisWeek, L('answers this week', '本周回答次数')) +
+    kpi(st.accuracy == null ? '–' : st.accuracy + '%', L('answers that were already right (last 4 weeks)', '不需要改正的回答（最近4周）')) +
+    kpi(st.avgLen == null ? '–' : st.avgLen.toFixed(1), L('words per answer (last 4 weeks)', '平均每句话的词数（最近4周）')) +
+    kpi(st.vocab, L('different English words you have used', '你说过的不同英文单词')) +
+    kpi(st.learned + ' / ' + st.saved, L('word bank: learned / saved', '单词本：已掌握 / 已保存'));
+  $('#weekCharts').innerHTML = st.totalAnswers ? (
+    barChart(L('Answers per week', '每周回答次数'), st.weeks, w => w.a || null, v => String(v)) +
+    barChart(L('Answers that were already right (%)', '不需要改正的回答（%）'), st.weeks, w => w.j ? Math.round(100 * w.c / w.j) : null, v => v + '%') +
+    barChart(L('Words per answer (longer answers = more fluent)', '平均每句话的词数（越长越流利）'), st.weeks, w => w.a ? Math.round(10 * w.w / w.a) / 10 : null, v => String(v))
+  ) : `<p class="muted">${L('Have a conversation first, and your progress will appear here.', '先去对话练习，进步情况就会出现在这里。')}</p>`;
+  renderReports();
+}
+const REP_SYSTEM = () => `You are an experienced, encouraging English speaking examiner and coach. Assess the learner's SPOKEN English from their recent answers in practice conversations. The answers were written down from speech, so ignore punctuation, capital letters and obvious transcription glitches.
+About the learner: ${S.about || 'not given'}. Their goals: ${S.goals || 'not given'}. Level they chose in the app: ${S.level}.
+Respond ONLY with JSON:
+{"level": "A1" | "A2" | "B1" | "B2" | "C1" | "C2" (CEFR estimate of their speaking),
+ "level_note": string (one sentence: what this level means in everyday life),
+ "scores": {"grammar": 1-10, "vocabulary": 1-10, "fluency": 1-10, "naturalness": 1-10},
+ "summary": string (2-3 encouraging, honest sentences),
+ "strengths": [string] (2-3),
+ "improved": [string] (0-3 things that clearly improved compared with the previous report; empty if there is no previous report or no clear change),
+ "work_on": [string] (the 2-3 most important things to improve, each with a tiny example like "past tense: I go → I went"),
+ "next_steps": [string] (2-3 concrete things to practise in the app: conversations on certain topics, 🎯 speaking drills, 🗣️ How do I say, reviewing the word bank)}${LANG_NOTE()}`;
+function scoreRow(name, v){ const n = Math.max(0, Math.min(10, Number(v) || 0)); return `<div class="score"><span class="n">${name}</span><span class="track"><span class="fill" style="width:${n * 10}%;display:block"></span></span><span class="num">${n}/10</span></div>`; }
+const SCORE_NAMES = () => [['grammar', L('Grammar', '语法')], ['vocabulary', L('Vocabulary', '词汇')], ['fluency', L('Fluency', '流利度')], ['naturalness', L('Sounding natural', '地道程度')]];
+function reportHtml(r){
+  const list = (t, arr) => arr && arr.length ? `<h3>${t}</h3><ul>${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
+  return `<div style="margin-top:14px"><div class="row"><span class="level">${esc(r.level)}</span><span class="muted">${esc(r.date)}<br>${esc(r.level_note || '')}</span></div>
+    <p>${esc(r.summary || '')}</p>
+    ${SCORE_NAMES().map(([k, n]) => scoreRow(n, (r.scores || {})[k])).join('')}
+    ${list(L('✅ Strengths', '✅ 优点'), r.strengths)}${list(L('📈 Improved since last time', '📈 比上次进步的地方'), r.improved)}${list(L('🎯 Work on next', '🎯 接下来要练的'), r.work_on)}${list(L('👉 Next steps in the app', '👉 在应用里可以这样练'), r.next_steps)}
+    <p class="muted">${L('Your teacher will now practise the "work on" points with you in conversations.', '老师会在之后的对话里，带你多练"接下来要练的"这几点。')}</p></div>`;
+}
+function renderReports(){
+  $('#repOut').innerHTML = reports[0] ? reportHtml(reports[0]) : '';
+  if(reports.length < 2){ $('#repHist').innerHTML = ''; return; }
+  const avg = r => { const v = Object.values(r.scores || {}).map(Number).filter(x => !isNaN(x)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0; };
+  const pts = reports.slice(0, 12).reverse();
+  const W = 320, H = 90, pad = 14;
+  const av = pts.map(avg), lo = Math.max(0, Math.floor(Math.min(...av)) - 1), hi = Math.min(10, Math.ceil(Math.max(...av)) + 1);
+  const xy = pts.map((r, i) => [pad + (W - 2 * pad) * (pts.length === 1 ? 0.5 : i / (pts.length - 1)), H - 16 - (H - 30) * (av[i] - lo) / Math.max(1, hi - lo)]);
+  const line = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${L('Average score over time', '平均分的变化')}">
+    <line x1="0" x2="${W}" y1="${H - 16}" y2="${H - 16}" stroke="#ddd"/>
+    <polyline points="${xy.map(p => p.join(',')).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+    ${xy.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="var(--accent)" stroke="#fff" stroke-width="2"><title>${esc(pts[i].date)}: ${esc(pts[i].level)}, ${avg(pts[i]).toFixed(1)}/10</title></circle>`).join('')}
+    <text class="vl" x="${xy[xy.length - 1][0]}" y="${xy[xy.length - 1][1] - 8}" text-anchor="end">${esc(pts[pts.length - 1].level)} · ${avg(pts[pts.length - 1]).toFixed(1)}</text>
+    <text class="ax" x="${xy[0][0]}" y="${H - 3}">${esc(pts[0].date.slice(5))}</text><text class="ax" x="${xy[xy.length - 1][0]}" y="${H - 3}" text-anchor="end">${esc(pts[pts.length - 1].date.slice(5))}</text></svg>`;
+  $('#repHist').innerHTML = `<h3>${L('Earlier reports', '以前的报告')}</h3><div class="chart"><div class="ct">${L('Average score (out of 10)', '平均分（满分10）')}</div>${line}</div>` +
+    reports.slice(1, 12).map(r => `<details class="sess"><summary>${esc(r.date)} · ${esc(r.level)} · ${avg(r).toFixed(1)}/10</summary>${reportHtml(r)}</details>`).join('');
+}
+$('#repGo').addEventListener('click', async () => {
+  const answers = [];
+  sessions.forEach(sess => sess.turns.forEach((t, i) => {
+    if(t.who === 'me' && t.text && !isCJK(t.text)){
+      const asked = (sess.turns[i - 1] && sess.turns[i - 1].who === 'alex') ? sess.turns[i - 1].text : '';
+      answers.push({date: sess.date, asked, text: t.text, fb: t.fb});
+    }
+  }));
+  if(answers.length < 8){ showErr(L(`Please practise a bit more first: at least 8 answers are needed (you have ${answers.length}).`, `请先多练习一下：至少需要 8 次回答（现在有 ${answers.length} 次）。`)); return; }
+  const recent = answers.slice(0, 60);
+  const st = computeStats();
+  const prev = reports[0] ? `PREVIOUS REPORT (${reports[0].date}): level ${reports[0].level}, scores ${JSON.stringify(reports[0].scores)}, work on: ${(reports[0].work_on || []).join('; ')}` : 'There is no previous report.';
+  const text = `${prev}\n\nPRACTICE STATS: ${st.totalDays} days practised, ${st.totalAnswers} answers, ${st.accuracy == null ? 'n/a' : st.accuracy + '%'} needed no correction in the last 4 weeks, ${st.avgLen == null ? 'n/a' : st.avgLen.toFixed(1)} words per answer, ${st.vocab} different words used.\n\nRECENT ANSWERS (newest first):\n` +
+    recent.map(a => `- [${a.date}] Q: "${a.asked}" → Learner: "${a.text}"` + (a.fb && !a.fb.perfect ? ` (tutor's correction: "${a.fb.corrected}")` : '')).join('\n');
+  $('#repGo').disabled = true; $('#repOut').innerHTML = `<p class="loading">${L('Reading your answers…', '正在看你的回答…')}</p>`;
+  try{
+    const r = await askAI(REP_SYSTEM(), [{role:'user', parts:[{text}]}]);
+    r.id = Date.now(); r.date = today(); r.answers = recent.length;
+    reports.unshift(r); reports = reports.slice(0, 60); store.set('reports', reports);
+    renderReports();
+  }catch(e){ $('#repOut').innerHTML = ''; showErr(e.message); renderReports(); }
+  finally{ $('#repGo').disabled = false; }
+});
+
+/* ---------- SHOW / HIDE pages and topic groups ---------- */
+const TAB_OPTS = [['progress', '📈 Progress', '📈 进步'], ['howto', '🗣️ How do I say…?', '🗣️ 怎么说？'], ['organize', '🧩 Say it better', '🧩 说得更好'], ['decode', '🔍 What did they mean?', '🔍 他们什么意思？'], ['words', '📒 Word bank', '📒 单词本']];
+const GROUP_OPTS = [['basic', 'Beginner topics', '入门话题'], ['daily', 'Everyday topics', '日常话题'], ['pro', 'Work topics', '工作话题'], ['deep', 'Deep talk (philosophy, ethics…)', '深度话题（哲学、伦理等）'], ['drill', '🎯 Speaking drills', '🎯 口语练习']];
+// Until the person changes it, the choice follows their level.
+function hiddenSet(){
+  if(S.hidden && Array.isArray(S.hidden.tabs)) return S.hidden;
+  return S.level === 'Beginner' ? {tabs:['organize'], groups:['deep', 'pro', 'daily']} : {tabs:[], groups:['basic']};
+}
+function renderShow(){
+  const h = hiddenSet();
+  const box = (kind, opts, hid) => opts.map(([k, en, zh]) => `<label class="row" style="font-weight:400;margin:6px 0"><input type="checkbox" data-show="${kind}:${k}" ${hid.includes(k) ? '' : 'checked'}> <span>${L(en, zh)}</span></label>`).join('');
+  $('#showBox').innerHTML = `<div class="muted" style="margin-top:6px">${L('Pages', '页面')}</div>` + box('tabs', TAB_OPTS, h.tabs) +
+    `<div class="muted" style="margin-top:8px">${L('Conversation topics', '对话话题')}</div>` + box('groups', GROUP_OPTS, h.groups);
+}
+function applyVisibility(){
+  const h = hiddenSet();
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('hidden', h.tabs.includes(b.dataset.tab)));
+  const cur = document.querySelector('#nav button.active');
+  if(cur && h.tabs.includes(cur.dataset.tab)) showTab('talk');
+  renderScenarios();
+}
+$('#showBox').addEventListener('change', e => {
+  const c = e.target.closest('[data-show]'); if(!c) return;
+  const h = JSON.parse(JSON.stringify(hiddenSet()));
+  const [kind, k] = c.dataset.show.split(':');
+  h[kind] = h[kind].filter(x => x !== k);
+  if(!c.checked) h[kind].push(k);
+  S.hidden = h; store.set('settings', S); applyVisibility();
+});
+$('#showReset').addEventListener('click', () => { S.hidden = null; store.set('settings', S); renderShow(); applyVisibility(); });
+
 /* ---------- HOW DO I SAY ---------- */
 function practiceBox(target){
   return `<div class="repeat" style="margin-top:12px" data-target="${esc(target)}"><div class="lbl">${L('🔁 Practise: say it out loud','🔁 练习：大声说出来')}</div><div class="target">${esc(target)}</div>
@@ -1694,7 +1940,7 @@ const STATIC_ZH = [
   ['header h1', '咖啡时间英语'],
   ['header .sub', '练习每天都会听到的英语'],
   ['#nav [data-tab=talk]', '💬 对话'], ['#nav [data-tab=howto]', '🗣️ 怎么说？'], ['#nav [data-tab=organize]', '🧩 说得更好'],
-  ['#nav [data-tab=decode]', '🔍 他们什么意思？'], ['#nav [data-tab=words]', '📒 单词本'], ['#nav [data-tab=memory]', '🧠 记忆'], ['#nav [data-tab=settings]', '⚙️ 设置'],
+  ['#nav [data-tab=decode]', '🔍 他们什么意思？'], ['#nav [data-tab=words]', '📒 单词本'], ['#nav [data-tab=progress]', '📈 进步'], ['#nav [data-tab=memory]', '🧠 记忆'], ['#nav [data-tab=settings]', '⚙️ 设置'],
   ['#pick .card h2', '选一个对话'],
   ['#pick .card p.muted', `🎯 <b>口语练习</b>：${PN} 问你问题，你回答，${PN} 帮你改正，然后你把更好的说法再说一遍。<br>你的对话老师是 ${PN}（可以在 ⚙️ 设置里改）。点 🎤 说话或者打字。每说一句，都会看到改正后的句子和地道的说法。<br>💡 不会说的时候，可以直接用中文问："……用英语怎么说？"（点下面的 <b>🎤 EN</b> 换成 <b>🎤 中文</b> 就可以说中文。）`],
   ['label[for=customTopic]', '或者自己选一个话题'], ['#customTopic', '例如：我的孙子、我做的菜、去公园散步', 'placeholder'], ['#customGo', '开始'],
@@ -1732,13 +1978,18 @@ const STATIC_ZH = [
   ['#welcome ol', '<li>打开 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio → API keys</a>，用 Google 账号登录。</li><li>点 <b>Create API key</b>（创建 API 密钥），然后复制。免费，不需要信用卡。</li><li>粘贴到下面，点 <b>保存并测试</b>。</li>'],
   ['#welcome p.muted:not(#t-welcomeSync)', '密钥只保存在这个浏览器里。使用 Google 免费版时，Google 可能会用你发送的内容来改进产品，所以不要输入私人或敏感信息。'],
   ['#tab-settings .card:nth-of-type(2) h2', '👤 关于我和我的老师'],
-  ['#tab-settings .card:nth-of-type(2) p.muted', '每台手机或电脑都有自己的设置，所以家里每个人都可以有自己的老师。'],
+  ['#tab-settings .card:nth-of-type(2) p.muted:not(#t-showP)', '每台手机或电脑都有自己的设置，所以家里每个人都可以有自己的老师。'],
   ['label[for=about]', '关于我：我的情况，在哪里用英语'], ['#about', '例如：我刚来美国，帮女儿带孩子。想和邻居、医生、超市的人简单交流。', 'placeholder'],
   ['label[for=goalsIn]', '我想练习什么'], ['#goalsIn', '例如：打招呼、买东西、看医生、和邻居聊天。', 'placeholder'],
   ['label[for=pname]', '老师的名字'], ['label[for=persona]', '老师的风格'],
   ['#persona option[value=coworker]', '友好的美国同事（轻松、日常口语）'], ['#persona option[value=teacher]', '耐心的老师（说得清楚，解释多一些）'],
   ['#persona option[value=friend]', '有趣的朋友（爱开玩笑，很多俚语）'], ['#persona option[value=british]', '友好的英国同事（英式英语）'], ['#persona option[value=mentor]', '有思想的导师（深入聊天，词汇更丰富）'],
   ['#saveAbout', '保存'],
+  ['#t-progH', '📈 我的进步'], ['#t-progP', '每次练习后，这些数字会自动更新。"不需要改正的回答"是指说得已经对、不用改的回答。'],
+  ['#t-weekH', '每周的变化'], ['#t-repH', '📝 AI 进步报告'],
+  ['#t-repP', '大约每周点一次。AI 会看你最近的回答和改正，估计你的口语水平，告诉你哪里进步了、接下来要练什么。之后老师会在每次对话里带你练这几点。'],
+  ['#repGo', '生成进步报告'],
+  ['#t-showH', '显示这些'], ['#t-showP', '把不需要的取消勾选，应用会变得更简单。只影响这个人看到的内容。'], ['#showReset', '用适合我水平的推荐设置'],
   ['label[for=apiKey]', 'Gemini API 密钥'], ['#apiKey', '把密钥粘贴到这里', 'placeholder'], ['#saveKey', '保存并测试'],
   ['label[for=model]', 'AI 模型'], ['#model + p.muted', '测试密钥后会自动选择。"Flash-Lite" 模型速度快，每天的免费次数最多（其他模型可能每天只有 20 次左右）。'],
   ['label[for=level]', '我的英语水平'],
@@ -1770,7 +2021,7 @@ function applyLang(){
   $('#langBtn').textContent = S.lang === 'zh' ? 'English' : '中文';
   $('#rateVal').textContent = Number(S.rate).toFixed(2);
   $('#verLine').textContent = L('Version ', '版本 ') + APP_VERSION;
-  paintName(); paintHands(); paintMicLang(); renderScenarios(); loadVoices();
+  paintName(); paintHands(); paintMicLang(); renderScenarios(); loadVoices(); renderShow(); applyVisibility();
   if(!$('#tab-words').classList.contains('hidden')) renderWords();
   if(!$('#tab-memory').classList.contains('hidden')) renderMemory();
 }
@@ -1799,7 +2050,7 @@ var syncReady = false, mergingNow = false, syncing = false, syncTimer = null, la
 var syncMeta = Object.assign({memoryAt:0, prefsAt:0, forgotAt:0, deletedWords:[]}, (() => { try{ return JSON.parse(localStorage.getItem('cbe_syncMeta') || '{}'); }catch(e){ return {}; } })());
 function saveSyncMeta(){ try{ localStorage.setItem('cbe_syncMeta', JSON.stringify(syncMeta)); }catch(e){} }
 const GIST_DESC = 'Coffee Break English sync';
-const SYNC_PREF_KEYS = ['about','goals','pname','persona','level','lang','native','memoryOn','repeatMode','autoSpeak','autoSend','rate','sttMode','handsFree'];
+const SYNC_PREF_KEYS = ['hidden','about','goals','pname','persona','level','lang','native','memoryOn','repeatMode','autoSpeak','autoSend','rate','sttMode','handsFree'];
 const prefsHash = () => JSON.stringify(SYNC_PREF_KEYS.map(k => S[k]));
 function onStoreSet(k){
   if(!syncReady || mergingNow) return;
@@ -1809,7 +2060,7 @@ function onStoreSet(k){
     if(h !== lastPrefsHash){ lastPrefsHash = h; syncMeta.prefsAt = Date.now(); saveSyncMeta(); }
     else if(!S.syncKeys) return;
   }
-  if(['memory','sessions','words','settings'].includes(k)) scheduleSync();
+  if(['memory','sessions','words','settings','progress','reports'].includes(k)) scheduleSync();
 }
 function scheduleSync(){ if(!S.syncToken) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(false), 4000); }
 function syncFile(){ return 'coffee-english-' + String(S.syncName || 'me').trim().toLowerCase().replace(/[^a-z0-9一-鿿_-]+/g, '-') + '.json'; }
@@ -1840,7 +2091,7 @@ async function findGist(){
 }
 function localBundle(){
   const prefs = {}; SYNC_PREF_KEYS.forEach(k => prefs[k] = S[k]);
-  const b = {app:'coffee-break-english', v:1, memory, memoryAt: syncMeta.memoryAt, sessions, words, deletedWords: syncMeta.deletedWords, forgotAt: syncMeta.forgotAt, prefs, prefsAt: syncMeta.prefsAt};
+  const b = {app:'coffee-break-english', v:1, progress, reports, memory, memoryAt: syncMeta.memoryAt, sessions, words, deletedWords: syncMeta.deletedWords, forgotAt: syncMeta.forgotAt, prefs, prefsAt: syncMeta.prefsAt};
   if(S.syncKeys) b.keys = {apiKey: S.apiKey, model: S.model, models: S.models, backup: S.backup, backupKey: S.backupKey, backupModel: S.backupModel};
   return b;
 }
@@ -1876,6 +2127,22 @@ function mergeBundle(r){
     else{ cur.known = Math.max(cur.known || 0, x.known || 0); cur.at = Math.max(cur.at || 0, x.at || 0); }
   });
   words = Object.values(wmap).sort((a, b) => (b.at || 0) - (a.at || 0));
+  // practice statistics: each device keeps its own counts per day
+  if(r.progress && r.progress.days){
+    Object.entries(r.progress.days).forEach(([d, devs]) => {
+      progress.days[d] = progress.days[d] || {};
+      Object.entries(devs).forEach(([dev, rec]) => {
+        const cur = progress.days[d][dev];
+        if(!cur || (rec.a || 0) > (cur.a || 0) || (rec.j || 0) > (cur.j || 0)) progress.days[d][dev] = rec;
+      });
+    });
+    progress.vocab = [...new Set(progress.vocab.concat(r.progress.vocab || []))].slice(-10000);
+  }
+  // progress reports: keep all of them
+  if(Array.isArray(r.reports)){
+    const ids = new Set(reports.map(x => x.id));
+    reports = reports.concat(r.reports.filter(x => x && !ids.has(x.id))).sort((a, b) => b.id - a.id).slice(0, 60);
+  }
   // teacher and app settings: the newer copy wins
   if((r.prefsAt || 0) > (syncMeta.prefsAt || 0) && r.prefs){
     SYNC_PREF_KEYS.forEach(k => { if(k in r.prefs) S[k] = r.prefs[k]; });
@@ -1897,7 +2164,7 @@ async function syncNow(manual){
   if(!S.syncToken || syncing) return;
   syncing = true;
   syncStatus(L('Syncing…', '正在同步…'));
-  const before = JSON.stringify([memory, sessions, words, prefsHash(), S.apiKey, S.backupKey]);
+  const before = JSON.stringify([memory, sessions, words, prefsHash(), S.apiKey, S.backupKey, progress, reports]);
   try{
     const id = await findGist();
     const g = await gh('/gists/' + id);
@@ -1908,7 +2175,7 @@ async function syncNow(manual){
     }
     mergingNow = true;
     mergeBundle(remote);
-    store.set('memory', memory); store.set('sessions', sessions); store.set('words', words); store.set('settings', S);
+    store.set('memory', memory); store.set('sessions', sessions); store.set('words', words); store.set('settings', S); store.set('progress', progress); store.set('reports', reports);
     mergingNow = false;
     saveSyncMeta();
     lastPrefsHash = prefsHash();
@@ -1917,7 +2184,8 @@ async function syncNow(manual){
       await gh('/gists/' + id, {method:'PATCH', body: JSON.stringify({files: {[syncFile()]: {content: JSON.stringify(local)}}})});
     }
     S.syncLast = Date.now(); mergingNow = true; store.set('settings', S); mergingNow = false;
-    if(before !== JSON.stringify([memory, sessions, words, prefsHash(), S.apiKey, S.backupKey])){
+    if(before !== JSON.stringify([memory, sessions, words, prefsHash(), S.apiKey, S.backupKey, progress, reports])){
+      if(!$('#tab-progress').classList.contains('hidden')) renderProgress();
       // Something new arrived from another device: refresh the screens.
       fillSettings(); fillAbout(); fillBackup(); applyLang(); paintName();
       if(!$('#tab-words').classList.contains('hidden')) renderWords();
