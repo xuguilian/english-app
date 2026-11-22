@@ -87,6 +87,11 @@
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(192,57,43,.5)}70%{box-shadow:0 0 0 12px rgba(192,57,43,0)}100%{box-shadow:0 0 0 0 rgba(192,57,43,0)}}
   .hints .opt{background:var(--blue-soft);border-radius:10px;padding:8px 12px;margin:6px 0;cursor:pointer}
   .hints .opt small{display:block;color:var(--muted)}
+  .memitem{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+  .memitem:first-child{border-top:0}
+  .sess{border-top:1px solid var(--line);padding:10px 0}
+  .sess summary{cursor:pointer;font-weight:600}
+  .sess .line{font-size:14px;margin:4px 0}
   .note{background:var(--accent-soft);color:var(--accent);border-radius:10px;padding:8px 12px;margin:8px 0;font-size:13px}
   .err{background:#fdecea;color:#8a1f11;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px}
   .muted{color:var(--muted);font-size:13px}
@@ -118,6 +123,7 @@
       <button data-tab="organize">🧩 Say it better</button>
       <button data-tab="decode">🔍 What did they mean?</button>
       <button data-tab="words">📒 Word bank</button>
+      <button data-tab="memory">🧠 Memory</button>
       <button data-tab="settings">⚙️ Settings</button>
     </nav>
   </div>
@@ -209,6 +215,40 @@
   </section>
 
   <!-- SETTINGS -->
+  <section id="tab-memory" class="hidden">
+    <div class="card">
+      <h2>🧠 What Alex remembers about you</h2>
+      <p class="muted">After your conversations, Alex writes short notes about you, and he reads them before every new conversation. You can change or delete anything here. The notes are saved only in this browser, on this device, and are sent to the AI along with your conversations.</p>
+      <label class="row" style="font-weight:400"><input type="checkbox" id="memoryOn" checked> Let Alex remember me</label>
+      <label for="memName">Your name</label>
+      <input type="text" id="memName" placeholder="What should Alex call you?">
+      <div id="memLists"></div>
+      <label for="memAdd">Tell Alex something about you</label>
+      <div class="row">
+        <input type="text" id="memAdd" placeholder="e.g. I work in a neuroscience lab. I have a cat called Mochi." style="flex:1">
+        <button class="btn small" id="memAddBtn">Add</button>
+      </div>
+      <div id="memStatus" class="muted" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <h2>📜 Past conversations</h2>
+      <div id="sessList"></div>
+    </div>
+    <div class="card">
+      <h2>Backup</h2>
+      <p class="muted">Your phone and computer each keep their own memory. To move it, make a backup file on one device and restore it on the other. Backups include your memory, past conversations and word bank, but never your API keys.</p>
+      <div class="row">
+        <button class="btn small" id="backupAll">Make a backup file</button>
+        <label class="btn ghost small" style="margin:0;font-weight:600">Restore from backup<input type="file" id="restoreAll" accept=".json" class="hidden"></label>
+        <button class="btn ghost small" id="forgetAll" style="color:#c0392b;border-color:#c0392b">Forget everything</button>
+      </div>
+      <div id="forgetConfirm" class="hidden" style="margin-top:10px">
+        <p><b>Delete Alex's memory and all past conversations on this device?</b> Your word bank stays.</p>
+        <div class="row"><button class="btn small warm" id="forgetYes">Yes, forget</button><button class="btn ghost small" id="forgetNo">Cancel</button></div>
+      </div>
+    </div>
+  </section>
+
   <section id="tab-settings" class="hidden">
     <div class="card" id="welcome">
       <h2>👋 One-time setup (2 minutes)</h2>
@@ -301,8 +341,13 @@ const store = {
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let S = Object.assign({apiKey:'', model:'gemini-2.5-flash', level:'Upper-intermediate', native:'', voice:'', rate:1, autoSpeak:true, autoSend:false, repeatMode:true, handsFree:false, models:null, backup:'none', backupKey:'', backupModel:''}, store.get('settings', {}));
+let S = Object.assign({apiKey:'', model:'gemini-2.5-flash', level:'Upper-intermediate', native:'', voice:'', rate:1, autoSpeak:true, autoSend:false, repeatMode:true, handsFree:false, memoryOn:true, models:null, backup:'none', backupKey:'', backupModel:''}, store.get('settings', {}));
 let words = store.get('words', []);
+let memory = Object.assign({name:'', facts:[], interests:[], goals:[], mistakes:[], topics:[]}, store.get('memory', {}));
+let sessions = store.get('sessions', []);   // [{id, title, date, turns:[{who, text, fb}], memDone}]
+function today(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function saveMemory(){ store.set('memory', memory); }
+function saveSessions(){ if(sessions.length > 40) sessions = sessions.slice(0, 40); store.set('sessions', sessions); }
 
 /* ---------- scenarios ---------- */
 const SCENARIOS = [
@@ -350,6 +395,26 @@ const FB_SYSTEM = () => `You are a kind, concise English tutor for a non-native 
  "corrected": string (the learner's sentence with only the errors fixed),
  "natural": string (how a native speaker would casually say the same thing, kept short),
  "explanation": string (one short sentence on the most useful fix, or brief praise)}`;
+function memoryBlock(){
+  if(!S.memoryOn) return '';
+  const m = memory, out = [];
+  if(m.name) out.push(`Name: ${m.name}`);
+  if(m.facts.length) out.push('About them: ' + m.facts.join('; '));
+  if(m.interests.length) out.push('Interests: ' + m.interests.join(', '));
+  if(m.goals.length) out.push('Their goals: ' + m.goals.join('; '));
+  if(m.topics.length) out.push('Recent conversations (newest first):\n' + m.topics.slice(0, 5).map(t => `- ${t.date}, "${t.title}": ${t.summary}`).join('\n'));
+  if(m.mistakes.length) out.push('Mistakes they often make: ' + m.mistakes.join('; '));
+  if(!out.length) return '';
+  return `\n\nWhat you remember about this learner from earlier conversations. Use it naturally, like a coworker who knows them: use their name, follow up on things they told you before, and steer toward chances to practise their usual mistakes. Never list these notes back or mention a "memory" or "notes".\n${out.join('\n')}\nWhen the message is "[START]", greet them warmly by name if you know it and, if it fits the scenario, follow up on something from a recent conversation.`;
+}
+const MEM_SYSTEM = () => `You keep a short memory profile of an English learner so that their conversation partner "Alex" can remember them between sessions. You'll get the CURRENT PROFILE (JSON) and a NEW CONVERSATION (with the tutor's corrections). Return the UPDATED profile, respond ONLY with JSON:
+{"name": string ("" if never mentioned),
+ "facts": [string] (personal facts the learner shared: job, lab, hometown, family, pets, plans, recent events; max 15, most useful first; merge duplicates; drop facts that are outdated),
+ "interests": [string] (max 8),
+ "goals": [string] (their goals for English or life that they mentioned, max 5),
+ "mistakes": [string] (recurring grammar or word-choice patterns, each with a tiny example, e.g. 'past tense: "I go" → "I went"'; max 6, most frequent first),
+ "summary": string (1-2 sentences about THIS conversation, including anything worth following up on next time)}
+Only include what the learner actually said about themselves. Keep each item short. Keep useful items from the current profile.`;
 const HINT_SYSTEM = () => `You help a non-native English speaker (level ${S.level}) who is stuck in a conversation. Given the conversation so far, suggest 3 things they could say next: one simple, one medium, one more advanced and natural. Respond ONLY with JSON: {"options":[{"say": string, "why": string (very short: what this does, e.g. "shares an opinion and asks back")}]}`;
 const ORG_SYSTEM = () => `You help a non-native English speaker (level ${S.level}) turn rough ideas into clear, well-organized SPOKEN English, for casual or thoughtful conversations with coworkers. Their input may be broken English, ${S.native || 'their native language'}, or a mix. Respond ONLY with JSON:
 {"understood": string (one line: what they mean, in plain English),
@@ -598,7 +663,7 @@ document.addEventListener('click', e => {
     const v = JSON.parse(b.dataset.v);
     const w = v.word || v.phrase;
     if(!hasWord(w)){
-      words.unshift({word:w, meaning:v.meaning || '', example:v.example || '', translation:v.translation || '', added:new Date().toISOString().slice(0,10), known:0});
+      words.unshift({word:w, meaning:v.meaning || '', example:v.example || '', translation:v.translation || '', added:today(), known:0});
       store.set('words', words);
     }
     b.classList.add('done'); b.textContent = 'saved';
@@ -611,6 +676,7 @@ function showTab(name){
   document.querySelectorAll('main section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-' + name));
   $('#talkBar').classList.toggle('hidden', !(name === 'talk' && convo));
   if(name === 'words') renderWords();
+  if(name === 'memory') renderMemory();
   window.scrollTo(0,0);
 }
 $('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if(b) showTab(b.dataset.tab); });
@@ -631,7 +697,9 @@ $('#customGo').addEventListener('click', () => {
 });
 function startConvo(title, prompt, drill){
   if(!S.apiKey && !(S.backup !== 'none' && S.backupKey)){ showTab('settings'); showErr('First, add your free Gemini API key here.'); return; }
-  convo = {title, system: talkSystem(prompt), history: [], drill: !!drill};
+  const sess = {id: Date.now().toString(36), title, date: today(), turns: [], memDone: 0};
+  sessions.unshift(sess);
+  convo = {title, system: talkSystem(prompt) + memoryBlock(), history: [], drill: !!drill, sess};
   $('#convoTitle').textContent = title;
   $('#chat').innerHTML = ''; $('#hints').innerHTML = '';
   $('#pick').classList.add('hidden'); $('#convo').classList.remove('hidden');
@@ -639,6 +707,10 @@ function startConvo(title, prompt, drill){
   sendTurn('[START]');
 }
 $('#endBtn').addEventListener('click', () => {
+  if(convo){
+    if(userTurns(convo.sess) === 0){ sessions = sessions.filter(x => x !== convo.sess); saveSessions(); }
+    else maybeUpdateMemory(convo.sess, true);
+  }
   convo = null; repeating = false; if(rec) rec.stop(); speechSynthesis && speechSynthesis.cancel();
   $('#convo').classList.add('hidden'); $('#pick').classList.remove('hidden'); $('#talkBar').classList.add('hidden');
 });
@@ -691,7 +763,11 @@ async function sendTurn(text){
   const isStart = text === '[START]';
   const thisConvo = convo;
   let meEl = null;
-  if(!isStart) meEl = addEl(`<div class="who">You</div>${esc(text)}`, 'msg me');
+  let meTurn = null;
+  if(!isStart){
+    meEl = addEl(`<div class="who">You</div>${esc(text)}`, 'msg me');
+    meTurn = {who:'me', text}; convo.sess.turns.push(meTurn); saveSessions();
+  }
   const loading = addEl('Alex is typing…', 'loading');
   const alexSaid = lastAlexLine();
   convo.history.push({role:'user', parts:[{text}]});
@@ -713,6 +789,8 @@ async function sendTurn(text){
     }
     const r = res.r;
     convo.history.push({role:'model', parts:[{text: JSON.stringify(r)}]});
+    convo.sess.turns.push({who:'alex', text: r.reply}); saveSessions();
+    maybeUpdateMemory(convo.sess, false);
     addEl(`<div class="who">Alex</div>${esc(r.reply)}<div class="tools"><button class="icon" data-say="${esc(r.reply)}">🔊 Replay</button><button class="icon" data-say="${esc(r.reply)}" data-slow="1">🐢 Slow</button></div>`, 'msg ai');
     let ex = '';
     if(r.phrases && r.phrases.length) ex += `<div class="muted" style="margin-top:2px">Expressions Alex used</div>` + vocabChips(r.phrases);
@@ -727,7 +805,7 @@ async function sendTurn(text){
     // Drill: correction first, then say it again, then Alex's next question (already loaded).
     const f = await fbP;
     if(thisConvo !== convo) return;
-    if(f){ meEl.after(feedbackEl(f, text, false)); }
+    if(f){ meEl.after(feedbackEl(f, text, false)); meTurn.fb = f; saveSessions(); }
     if(f && !f.perfect && f.natural){
       loading.classList.add('hidden');
       repeatPanel(f.natural, async () => { loading.classList.remove('hidden'); showReply(await replyP); });
@@ -736,7 +814,7 @@ async function sendTurn(text){
     }
   }else{
     // Conversation: Alex answers as soon as possible; the correction appears quietly when ready.
-    fbP.then(f => { if(f && meEl && thisConvo === convo) { meEl.after(feedbackEl(f, text, true)); toBottom(); } });
+    fbP.then(f => { if(f && meEl && thisConvo === convo) { meEl.after(feedbackEl(f, text, true)); meTurn.fb = f; saveSessions(); toBottom(); } });
     showReply(await replyP);
   }
 }
@@ -1020,6 +1098,96 @@ function fillBackup(){
   showBackupBox();
 }
 
+/* ---------- MEMORY ---------- */
+let memBusy = false;
+function userTurns(sess){ return sess.turns.filter(t => t.who === 'me').length; }
+function transcriptOf(sess){
+  return sess.turns.map(t => t.who === 'alex' ? `Alex: ${t.text}` :
+    `Learner: ${t.text}` + (t.fb && !t.fb.perfect ? `\n  (tutor's correction: "${t.fb.corrected}". ${t.fb.explanation})` : '')).join('\n');
+}
+// Update the memory after a conversation ends, and every 6 answers during a long one (in case the app is closed).
+async function maybeUpdateMemory(sess, ending){
+  if(!S.memoryOn || memBusy || !sess) return;
+  const n = userTurns(sess);
+  if(n < 2 || n <= (sess.memDone || 0)) return;
+  if(!ending && n - (sess.memDone || 0) < 6) return;
+  memBusy = true;
+  try{
+    const cur = {name:memory.name, facts:memory.facts, interests:memory.interests, goals:memory.goals, mistakes:memory.mistakes};
+    const r = await askAI(MEM_SYSTEM(), [{role:'user', parts:[{text:`CURRENT PROFILE:\n${JSON.stringify(cur)}\n\nNEW CONVERSATION ("${sess.title}", ${sess.date}):\n${transcriptOf(sess)}`}]}]);
+    const arr = (x, k) => Array.isArray(x) ? x.filter(v => typeof v === 'string' && v.trim()).slice(0, k) : null;
+    if(typeof r.name === 'string' && r.name.trim()) memory.name = memory.name || r.name.trim();
+    memory.facts = arr(r.facts, 15) || memory.facts;
+    memory.interests = arr(r.interests, 8) || memory.interests;
+    memory.goals = arr(r.goals, 5) || memory.goals;
+    memory.mistakes = arr(r.mistakes, 6) || memory.mistakes;
+    if(r.summary){
+      memory.topics = memory.topics.filter(t => t.id !== sess.id);
+      memory.topics.unshift({id: sess.id, date: sess.date, title: sess.title, summary: r.summary});
+      memory.topics = memory.topics.slice(0, 10);
+    }
+    sess.memDone = n;
+    saveMemory(); saveSessions();
+    if(!$('#tab-memory').classList.contains('hidden')) renderMemory();
+  }catch(e){ /* try again next time */ }
+  finally{ memBusy = false; }
+}
+// On start-up, catch up on a conversation that ended without updating the memory (e.g. the app was closed).
+function catchUpMemory(){
+  const pending = sessions.find(s => userTurns(s) >= 2 && userTurns(s) > (s.memDone || 0));
+  if(pending && (S.apiKey || S.backupKey)) setTimeout(() => maybeUpdateMemory(pending, true), 1500);
+}
+const MEM_LISTS = [['facts','About you'], ['interests','Interests'], ['goals','Goals'], ['mistakes','Mistakes Alex helps you with']];
+function renderMemory(){
+  $('#memoryOn').checked = S.memoryOn;
+  $('#memName').value = memory.name || '';
+  let html = '';
+  MEM_LISTS.forEach(([k, label]) => {
+    html += `<h3>${label}</h3>` + (memory[k].length ? memory[k].map((v, i) => `<div class="memitem"><span>${esc(v)}</span><button class="icon" data-memdel="${k}:${i}" title="Delete">✕</button></div>`).join('') : '<p class="muted">Nothing yet.</p>');
+  });
+  html += '<h3>Recent conversations</h3>' + (memory.topics.length ? memory.topics.map((t, i) => `<div class="memitem"><span><b>${esc(t.date)}, ${esc(t.title)}</b><br>${esc(t.summary)}</span><button class="icon" data-memdel="topics:${i}" title="Delete">✕</button></div>`).join('') : '<p class="muted">Nothing yet. Alex writes his notes when you finish a conversation (tap "↩ New topic").</p>');
+  $('#memLists').innerHTML = html;
+  $('#memStatus').textContent = memBusy ? 'Alex is updating his notes…' : '';
+  const list = sessions.filter(s => userTurns(s) > 0);
+  $('#sessList').innerHTML = list.length ? list.map(s => `<details class="sess"><summary>${esc(s.date)}, ${esc(s.title)} <span class="muted">(${userTurns(s)} answers)</span></summary>${s.turns.map(t => `<div class="line"><b>${t.who === 'me' ? 'You' : 'Alex'}:</b> ${esc(t.text)}${t.fb && !t.fb.perfect ? `<br><span class="muted">✏️ ${esc(t.fb.natural || t.fb.corrected)}</span>` : ''}</div>`).join('')}</details>`).join('') : '<p class="muted">No conversations yet.</p>';
+}
+$('#memLists').addEventListener('click', e => {
+  const b = e.target.closest('[data-memdel]'); if(!b) return;
+  const [k, i] = b.dataset.memdel.split(':'); memory[k].splice(+i, 1); saveMemory(); renderMemory();
+});
+$('#memName').addEventListener('change', () => { memory.name = $('#memName').value.trim(); saveMemory(); });
+$('#memoryOn').addEventListener('change', () => { S.memoryOn = $('#memoryOn').checked; store.set('settings', S); });
+$('#memAddBtn').addEventListener('click', () => {
+  const v = $('#memAdd').value.trim(); if(!v) return;
+  memory.facts.unshift(v); memory.facts = memory.facts.slice(0, 15); $('#memAdd').value = ''; saveMemory(); renderMemory();
+});
+$('#memAdd').addEventListener('keydown', e => { if(e.key === 'Enter') $('#memAddBtn').click(); });
+$('#forgetAll').addEventListener('click', () => $('#forgetConfirm').classList.remove('hidden'));
+$('#forgetNo').addEventListener('click', () => $('#forgetConfirm').classList.add('hidden'));
+$('#forgetYes').addEventListener('click', () => {
+  memory = {name:'', facts:[], interests:[], goals:[], mistakes:[], topics:[]}; sessions = [];
+  saveMemory(); saveSessions(); $('#forgetConfirm').classList.add('hidden'); renderMemory();
+});
+$('#backupAll').addEventListener('click', () => {
+  const s2 = Object.assign({}, S); delete s2.apiKey; delete s2.backupKey;
+  const blob = new Blob([JSON.stringify({app:'coffee-break-english', version:1, memory, sessions, words, settings:s2}, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'coffee-english-backup-' + today() + '.json'; a.click();
+});
+$('#restoreAll').addEventListener('change', async e => {
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const d = JSON.parse(await f.text());
+    if(d.app !== 'coffee-break-english') throw new Error();
+    if(d.memory) memory = Object.assign({name:'', facts:[], interests:[], goals:[], mistakes:[], topics:[]}, d.memory);
+    if(Array.isArray(d.sessions)){ const have = new Set(sessions.map(s => s.id)); sessions = sessions.concat(d.sessions.filter(s => !have.has(s.id))).sort((a,b) => b.id < a.id ? -1 : 1); }
+    if(Array.isArray(d.words)) d.words.forEach(w => { if(w && w.word && !hasWord(w.word)) words.push(w); });
+    saveMemory(); saveSessions(); store.set('words', words); renderMemory();
+    $('#memStatus').textContent = '✓ Backup restored.';
+  }catch(err){ showErr('That file is not a Coffee Break English backup.'); }
+  e.target.value = '';
+});
+
 /* ---------- init ---------- */
 renderScenarios();
 fillSettings();
@@ -1028,6 +1196,7 @@ paintHands();
 loadVoices();
 if('speechSynthesis' in window) speechSynthesis.onvoiceschanged = loadVoices;
 if(!S.apiKey) showTab('settings');
+catchUpMemory();
 </script>
 </body>
 </html>
