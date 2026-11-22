@@ -531,6 +531,11 @@ const HOW_SYSTEM = () => `An English learner (level ${S.level}) asks how to say 
 
 /* ---------- Gemini ---------- */
 const API = 'https://generativelanguage.googleapis.com/v1beta';
+// The fastest stable model for simple jobs like writing down speech.
+function fastModel(){
+  const ms = S.models || [];
+  return ms.find(m => /flash-lite/.test(m) && !/preview|exp/.test(m)) || ms.find(m => /flash-lite/.test(m)) || S.model;
+}
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function aiError(msg, retryable){ const e = new Error(msg); e.retryable = retryable; return e; }
 
@@ -604,17 +609,19 @@ function note(msg){
   target.appendChild(box); setTimeout(() => box.remove(), 6000);
 }
 
-async function askAI(system, contents){
+async function askAI(system, contents, o){
   if(!S.apiKey && !(S.backup !== 'none' && S.backupKey)) throw new Error(L('Add your free Gemini API key in ⚙️ Settings first.', '请先在 ⚙️ 设置里填好免费的 Gemini API 密钥。'));
+  if(!S.apiKey && contents.some(c => (c.parts || []).some(p => p.inlineData))) throw new Error(L('Voice input by AI needs a Gemini key in ⚙️ Settings.', 'AI 录音识别需要在 ⚙️ 设置里填好 Gemini 密钥。'));
   const errors = [];
   if(S.apiKey){
     if(!S.models){ try{ S.models = await loadModels(); store.set('settings', S); }catch(e){ S.models = []; } }
-    const others = (S.models || []).filter(m => m !== S.model).slice(0, 3);
-    const plan = [S.model, S.model, ...others];      // retry the main model once, then try others
+    const first = (o && o.model) || S.model;
+    const others = (S.models || []).filter(m => m !== first).slice(0, 3);
+    const plan = [first, first, ...others];      // retry the first model once, then try others
     for(let i = 0; i < plan.length; i++){
       try{
         const r = await geminiCall(plan[i], system, contents);
-        if(plan[i] !== S.model){
+        if(plan[i] !== first && first === S.model){
           note(L(`${S.model} was busy, so I switched to ${plan[i]}. (You can change it in ⚙️ Settings.)`, `${S.model} 太忙了，已换成 ${plan[i]}。`));
           S.model = plan[i]; store.set('settings', S);
           const sel = $('#model');
@@ -629,12 +636,17 @@ async function askAI(system, contents){
       }
     }
   }
-  if(S.backup !== 'none' && S.backupKey && S.backupModel){
+  // The backup services can only read text, so recordings are never sent to them.
+  const hasAudio = contents.some(c => (c.parts || []).some(p => p.inlineData));
+  if(S.backup !== 'none' && S.backupKey && S.backupModel && !hasAudio){
     try{
       const r = await backupCall(system, contents);
       note(`Gemini was busy, so this answer came from ${BACKUPS[S.backup].name}.`);
       return r;
     }catch(e){ errors.push(e); }
+  }
+  if(errors.length && errors.every(e => e.retryable) && errors.some(e => /\(429\)/.test(e.message))){
+    throw new Error(L("You've reached the free limit for now (there's a limit per minute and per day). Wait a minute and try again. If it keeps happening, today's free requests may be used up; they reset tomorrow.", '免费次数暂时用完了（每分钟和每天都有上限）。请等一分钟再试。如果一直这样，可能是今天的免费次数用完了，明天会自动恢复。'));
   }
   if(errors.length && errors.every(e => e.retryable)){
     throw new Error(L('All the free AI models are busy right now. Wait a minute and try again' + (S.backup === 'none' ? ', or add a backup AI service in ⚙️ Settings.' : '.'), '免费的 AI 现在都很忙。请等一分钟再试。'));
@@ -731,7 +743,7 @@ document.addEventListener('click', () => {
   try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
 }, {capture:true});
 let rec = null, recBtn = null;
-const APP_VERSION = '1.9';
+const APP_VERSION = '1.11';
 const IN_APP = /MicroMessenger|WeChat|FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent);
 const IOS_NOT_SAFARI = /iPhone|iPad|iPod/i.test(navigator.userAgent) && /CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
 function micHelp(){
@@ -785,12 +797,16 @@ async function toWav16k(blob){
   for(let i = 0; i < data.length; i++){ const x = Math.max(-1, Math.min(1, data[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
   return new Blob([out], {type:'audio/wav'});
 }
-async function transcribe(blob, lang){
+async function prepAudio(blob){
   let audio = blob, mime = (blob.type || 'audio/webm').split(';')[0];
   try{ audio = await toWav16k(blob); mime = 'audio/wav'; }catch(e){ /* send the original recording */ }
+  return {mime, b64: await blobToB64(audio)};
+}
+async function transcribe(blob, lang){
+  const a = await prepAudio(blob);
   const zh = /^zh/.test(lang || '');
   const r = await askAI(`You are a speech-to-text engine. Write down exactly what the speaker says in the audio. ${zh ? 'The speaker mostly speaks Chinese (Mandarin), maybe mixed with some English words. Write Chinese in simplified characters.' : 'The speaker is an English learner speaking English, maybe with an accent and mistakes.'} Do NOT correct mistakes, do NOT translate, do NOT add anything. If nobody speaks, return an empty string. Respond ONLY with JSON: {"text": string}`,
-    [{role:'user', parts:[{inlineData:{mimeType:mime, data: await blobToB64(audio)}}, {text:'Transcribe this audio.'}]}]);
+    [{role:'user', parts:[{inlineData:{mimeType:a.mime, data:a.b64}}, {text:'Transcribe this audio.'}]}], {model: fastModel()});
   return String(r.text || '').trim();
 }
 async function aiMic(btn, ta, onDone, opts){
@@ -833,7 +849,7 @@ async function aiMic(btn, ta, onDone, opts){
       an.getByteTimeDomainData(data);
       let sum = 0; for(let i = 0; i < data.length; i++){ const x = (data[i] - 128) / 128; sum += x * x; }
       if(Math.sqrt(sum / data.length) > 0.035){ heard = true; lastLoud = Date.now(); }
-      if(vad && heard && Date.now() - lastLoud > 1600) stop();
+      if(vad && heard && Date.now() - lastLoud > 1000) stop();
       else if(vad && !heard && Date.now() - started > 9000) stop();
     }, 100);
   }catch(e){ vad = false; }
@@ -848,6 +864,12 @@ async function aiMic(btn, ta, onDone, opts){
     if(blob.size < 1500 || (vad && !heard)){
       resetMicBtn(btn);
       if(!S.handsFree) showErr(L("I didn't hear anything. Try again, a little closer to the mic.", '没有听到声音。请靠近麦克风再试一次。'));
+      return;
+    }
+    if(opts && opts.onAudio){
+      // Conversation: send the voice straight to the teacher (one trip instead of two).
+      resetMicBtn(btn);
+      try{ opts.onAudio(await prepAudio(blob)); }catch(e){ showErr(e.message); }
       return;
     }
     btn.textContent = '…'; btn.disabled = true;
@@ -1057,29 +1079,42 @@ function feedbackEl(f, text, compact){
 function listenNow(){
   if(!S.handsFree || !convo || repeating || rec || busy) return;
   $('#talkIn').value = '';
-  toggleMic($('#talkMic'), $('#talkIn'), sendFromBox, {continuous:false});
+  toggleMic($('#talkMic'), $('#talkIn'), sendFromBox, {continuous:false, onAudio: sendAudio});
 }
-async function sendTurn(text){
+const HEARD_NOTE = () => `\n\nTHIS TURN the learner answered by VOICE (the audio is attached). Listen carefully and add the field "heard": exactly what they said, word for word, WITHOUT correcting any mistakes (if they spoke Chinese, write it in Chinese characters). Then reply to what they said, as usual. If you can't hear any words, set "heard" to "" and "reply" to "".`;
+async function sendTurn(text, audio){
   if(busy || !convo) return;
   busy = true; $('#sendBtn').disabled = true; $('#hints').innerHTML = '';
   const isStart = text === '[START]';
   const thisConvo = convo;
+  const finishBusy = () => { busy = false; $('#sendBtn').disabled = false; };
   let meEl = null;
   let meTurn = null;
-  if(!isStart){
-    meEl = addEl(`<div class="who">${L('You','你')}</div>${esc(text)}`, 'msg me');
-    meTurn = {who:'me', text}; convo.sess.turns.push(meTurn); saveSessions();
-  }
+  if(!isStart) meEl = addEl(`<div class="who">${L('You','你')}</div>${audio ? '<span style="opacity:.75">🎤 …</span>' : esc(text)}`, 'msg me');
   const loading = addEl(L(`${esc(PNAME())} is typing…`, `${esc(PNAME())} 正在输入…`), 'loading');
   const alexSaid = lastAlexLine();
+  let replyP = null;
+  if(audio){
+    // One trip: the teacher listens to the recording, writes down what was heard, and replies.
+    const res = await askAI(convo.system + HEARD_NOTE(), convo.history.concat([{role:'user', parts:[{inlineData:{mimeType:audio.mime, data:audio.b64}}, {text:'(The learner answered by voice. Listen to the audio.)'}]}])).then(r => ({r}), e => ({e}));
+    if(thisConvo !== convo) return;
+    text = res.r ? String(res.r.heard || '').trim() : '';
+    if(res.e || !text || !res.r.reply){
+      meEl.remove(); loading.remove();
+      showErr(res.e ? res.e.message : L("I couldn't make out any words. Please try again.", '没有听清楚。请再说一次。'), $('#chat'));
+      finishBusy(); return;
+    }
+    delete res.r.heard;
+    meEl.innerHTML = `<div class="who">${L('You','你')}</div>${esc(text)}`;
+    replyP = Promise.resolve(res);
+  }
+  if(!isStart){ meTurn = {who:'me', text}; convo.sess.turns.push(meTurn); saveSessions(); }
   convo.history.push({role:'user', parts:[{text}]});
 
   // Alex's reply and your correction are requested at the same time.
-  const replyP = askAI(convo.system, convo.history).then(r => ({r}), e => ({e}));
+  if(!replyP) replyP = askAI(convo.system, convo.history).then(r => ({r}), e => ({e}));
   const fbP = (isStart || isCJK(text) || /how (do|can|would) (i|you) say/i.test(text)) ? Promise.resolve(null)
     : askAI(FB_SYSTEM(), [{role:'user', parts:[{text:`Coworker said: "${alexSaid || '(start of conversation)'}"\nLearner replied: "${text}"`}]}]).catch(() => null);
-
-  const finishBusy = () => { busy = false; $('#sendBtn').disabled = false; };
   const showReply = res => {
     if(thisConvo !== convo) return;
     loading.remove();
@@ -1141,7 +1176,12 @@ function paintMicLang(){
   $('#micLang').textContent = micZh ? '🎤 中文' : '🎤 EN';
   $('#micLang').title = micZh ? '现在说中文（问"怎么说"）。点一下换成英文。' : '现在说英文。点一下换成中文。';
 }
-$('#talkMic').addEventListener('click', () => toggleMic($('#talkMic'), $('#talkIn'), (S.autoSend || S.handsFree) && !micZh ? sendFromBox : null, {lang: micZh ? 'zh-CN' : 'en-US'}));
+function sendAudio(a){
+  if(repeating){ showErr(L('First say the better version again (🎤 in the purple box), or tap "Skip".', '请先把更好的说法再说一遍（点紫色框里的 🎤），或者点"跳过"。'), $('#chat')); return; }
+  sendTurn('', a);
+}
+$('#talkMic').addEventListener('click', () => toggleMic($('#talkMic'), $('#talkIn'), (S.autoSend || S.handsFree) && !micZh ? sendFromBox : null,
+  {lang: micZh ? 'zh-CN' : 'en-US', onAudio: (!micZh && !$('#talkIn').value.trim()) ? sendAudio : null}));
 function paintHands(){ $('#handsBtn').classList.toggle('on', !!S.handsFree); $('#handsBtn').textContent = S.handsFree ? L('🎧 Hands-free: ON', '🎧 免提：开') : L('🎧 Hands-free', '🎧 免提'); }
 $('#handsBtn').addEventListener('click', () => {
   S.handsFree = !S.handsFree; store.set('settings', S); paintHands();
