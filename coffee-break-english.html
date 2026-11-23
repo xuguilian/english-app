@@ -306,7 +306,7 @@
     </div>
     <div class="card" id="syncCard">
       <h2 id="t-syncH">☁️ Cloud sync</h2>
-      <p class="muted" id="t-syncP">Keep your memory, past conversations, word bank and teacher settings the same on your phone and computer. Everything is saved in a private (secret) Gist in your GitHub account, for free.</p>
+      <p class="muted" id="t-syncP">Keep your memory, past conversations, word bank and teacher settings the same on your phone and computer. Your learning data is saved in a secret Gist in your GitHub account, for free. A secret Gist is not listed anywhere, but anyone who has its exact link can open it, so API keys are never saved there. On a new device, paste your API keys in ⚙️ Settings yourself.</p>
       <details><summary id="t-syncHowS">How to get a GitHub token (once, on a computer)</summary>
         <ol class="setup" id="t-syncHowOl">
           <li>Sign in at <a href="https://github.com" target="_blank" rel="noopener">github.com</a>, click your photo (top right) → <b>Settings</b>.</li>
@@ -319,7 +319,7 @@
       <input type="password" id="syncToken" placeholder="ghp_…">
       <label for="syncName">Sync name (the same on all your own devices, different for each person)</label>
       <input type="text" id="syncName" placeholder="e.g. me, mom, dad">
-      <label class="row" style="font-weight:400"><input type="checkbox" id="syncKeys" checked> <span id="t-syncKeys">Also sync my API keys (then a new device only needs the GitHub token and sync name)</span></label>
+      <label class="row hidden" style="font-weight:400"><input type="checkbox" id="syncKeys"> <span id="t-syncKeys">Also sync my API keys (then a new device only needs the GitHub token and sync name)</span></label>
       <div class="row" style="margin-top:10px"><button class="btn" id="syncGo">Connect &amp; sync now</button><button class="btn ghost small" id="syncOff">Turn off</button></div>
       <div id="syncStatus" class="muted" style="margin-top:8px"></div>
     </div>
@@ -334,7 +334,7 @@
         <li>Paste it below and click <b>Save &amp; test</b>.</li>
       </ol>
       <p class="muted">Your key stays in this browser only. On Google's free tier, Google may use what you send to improve its products, so don't type private or sensitive information.</p>
-      <p class="muted" id="t-welcomeSync">Already using the app on another device with cloud sync? Go to <b>🧠 Memory → ☁️ Cloud sync</b>, enter your GitHub token and sync name, and everything comes back.</p>
+      <p class="muted" id="t-welcomeSync">Already using the app on another device with cloud sync? Go to <b>🧠 Memory → ☁️ Cloud sync</b>, enter your GitHub token and sync name, and your learning data comes back. (Your API keys are not synced; paste them here.)</p>
     </div>
     <div class="card">
       <h2>👤 About me and my teacher</h2>
@@ -834,7 +834,7 @@ document.addEventListener('click', () => {
   try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
 }, {capture:true});
 let rec = null, recBtn = null;
-const APP_VERSION = '1.16';
+const APP_VERSION = '1.17';
 const IN_APP = /MicroMessenger|WeChat|FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent);
 const IOS_NOT_SAFARI = /iPhone|iPad|iPod/i.test(navigator.userAgent) && /CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
 function micHelp(){
@@ -1966,13 +1966,13 @@ const STATIC_ZH = [
   ['#tab-memory .card:nth-of-type(3) p.muted', '手机和电脑各自保存自己的记忆。要换设备，可以在一台设备上生成备份文件，再到另一台设备上恢复。备份包括记忆、以前的对话和单词本，但不包括 API 密钥。'],
   ['#backupAll', '生成备份文件'], ['#t-restore', '从备份恢复'], ['#forgetAll', '全部忘掉'],
   ['#t-syncH', '☁️ 云同步'],
-  ['#t-syncP', '让手机和电脑上的记忆、以前的对话、单词本和老师设置保持一样。所有数据免费保存在你 GitHub 账号里的一个私密 Gist（只有你能看到）中。'],
+  ['#t-syncP', '让手机和电脑上的记忆、以前的对话、单词本和老师设置保持一样。学习数据免费保存在你 GitHub 账号里的一个"秘密 Gist"中。秘密 Gist 不会被列出来，但任何拿到准确链接的人都能打开，所以 API 密钥绝不会保存在那里。在新设备上，请自己在 ⚙️ 设置里粘贴 API 密钥。'],
   ['#t-syncHowS', '怎么获得 GitHub 令牌（只需一次，在电脑上做）'],
   ['#t-syncHowOl', '<li>登录 <a href="https://github.com" target="_blank" rel="noopener">github.com</a>，点右上角的头像 → <b>Settings</b>。</li><li>在左边菜单最下面：<b>Developer settings → Personal access tokens → Tokens (classic)</b>。</li><li>点 <b>Generate new token → Generate new token (classic)</b>。Note 写 <i>coffee english</i>，Expiration 选 <i>No expiration</i>，只勾选 <b>gist</b>。</li><li>点 <b>Generate token</b>，复制令牌（以 <b>ghp_</b> 开头）。在每台设备上粘贴到下面。全家可以用同一个令牌，每个人用不同的同步名字。</li>'],
   ['label[for=syncToken]', 'GitHub 令牌'], ['label[for=syncName]', '同步名字（自己的所有设备填一样的，每个人填不同的）'], ['#syncName', '例如：me、mom、dad', 'placeholder'],
   ['#t-syncKeys', '同时同步我的 API 密钥（这样新设备只需要填 GitHub 令牌和同步名字）'],
   ['#syncGo', '连接并马上同步'], ['#syncOff', '关闭同步'],
-  ['#t-welcomeSync', '已经在别的设备上用过、并且开了云同步？去 <b>🧠 记忆 → ☁️ 云同步</b>，填上 GitHub 令牌和同步名字，所有东西都会回来。'],
+  ['#t-welcomeSync', '已经在别的设备上用过、并且开了云同步？去 <b>🧠 记忆 → ☁️ 云同步</b>，填上 GitHub 令牌和同步名字，学习数据就会回来。（API 密钥不会同步，请在这里自己粘贴。）'],
   ['#forgetConfirm p', `<b>删除 ${PN} 的记忆和这台设备上所有以前的对话吗？</b>单词本会保留。`], ['#forgetYes', '确定忘掉'], ['#forgetNo', '取消'],
   ['#welcome h2', '👋 第一次设置（2 分钟）'],
   ['#welcome ol', '<li>打开 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio → API keys</a>，用 Google 账号登录。</li><li>点 <b>Create API key</b>（创建 API 密钥），然后复制。免费，不需要信用卡。</li><li>粘贴到下面，点 <b>保存并测试</b>。</li>'],
@@ -2058,7 +2058,7 @@ function onStoreSet(k){
   if(k === 'settings'){
     const h = prefsHash();
     if(h !== lastPrefsHash){ lastPrefsHash = h; syncMeta.prefsAt = Date.now(); saveSyncMeta(); }
-    else if(!S.syncKeys) return;
+    else return;
   }
   if(['memory','sessions','words','settings','progress','reports'].includes(k)) scheduleSync();
 }
@@ -2073,6 +2073,7 @@ async function gh(path, opt){
   const data = await res.json().catch(() => ({}));
   if(!res.ok){
     if(res.status === 401) throw new Error(L('The GitHub token is not valid. Check that you copied all of it.', 'GitHub 令牌无效。请检查是否完整复制。'));
+    if(res.status === 404 && /^\/gists\/[^/?]+$/.test(path)){ const e = new Error('gist-gone'); e.gone = true; throw e; }
     if(res.status === 403 || res.status === 404) throw new Error(L('The GitHub token needs the "gist" permission.', 'GitHub 令牌需要勾选 "gist" 权限。'));
     throw new Error('GitHub: ' + (data.message || res.statusText));
   }
@@ -2092,7 +2093,7 @@ async function findGist(){
 function localBundle(){
   const prefs = {}; SYNC_PREF_KEYS.forEach(k => prefs[k] = S[k]);
   const b = {app:'coffee-break-english', v:1, progress, reports, memory, memoryAt: syncMeta.memoryAt, sessions, words, deletedWords: syncMeta.deletedWords, forgotAt: syncMeta.forgotAt, prefs, prefsAt: syncMeta.prefsAt};
-  if(S.syncKeys) b.keys = {apiKey: S.apiKey, model: S.model, models: S.models, backup: S.backup, backupKey: S.backupKey, backupModel: S.backupModel};
+  // API keys are NEVER put in the synced file: a secret Gist can be opened by anyone with its link, and key scanners read it.
   return b;
 }
 const sessTime = s => { const t = parseInt(s.id, 36); return isNaN(t) ? 0 : t; };
@@ -2148,11 +2149,6 @@ function mergeBundle(r){
     SYNC_PREF_KEYS.forEach(k => { if(k in r.prefs) S[k] = r.prefs[k]; });
     syncMeta.prefsAt = r.prefsAt;
   }
-  // API keys: only filled in where this device has none yet
-  if(r.keys){
-    if(!S.apiKey && r.keys.apiKey){ S.apiKey = r.keys.apiKey; S.model = r.keys.model || S.model; S.models = r.keys.models || S.models; }
-    if((!S.backupKey || S.backup === 'none') && r.keys.backupKey){ S.backup = r.keys.backup; S.backupKey = r.keys.backupKey; S.backupModel = r.keys.backupModel; }
-  }
 }
 function syncStatus(msg){ const el = $('#syncStatus'); if(el) el.textContent = msg; }
 function syncTimeText(){
@@ -2166,8 +2162,10 @@ async function syncNow(manual){
   syncStatus(L('Syncing…', '正在同步…'));
   const before = JSON.stringify([memory, sessions, words, prefsHash(), S.apiKey, S.backupKey, progress, reports]);
   try{
-    const id = await findGist();
-    const g = await gh('/gists/' + id);
+    let id = await findGist();
+    let g;
+    try{ g = await gh('/gists/' + id); }
+    catch(e){ if(!e.gone) throw e; S.syncGistId = ''; id = await findGist(); g = await gh('/gists/' + id); }   // the Gist was deleted: start a new one
     const f = g.files && g.files[syncFile()];
     let remote = null;
     if(f){
@@ -2180,7 +2178,7 @@ async function syncNow(manual){
     saveSyncMeta();
     lastPrefsHash = prefsHash();
     const local = localBundle();
-    if(!remote || JSON.stringify(local) !== JSON.stringify(Object.assign({}, remote, {keys: S.syncKeys ? remote.keys : undefined}))){
+    if(!remote || remote.keys || JSON.stringify(local) !== JSON.stringify(remote)){   // an old file that still contains keys is always rewritten without them
       await gh('/gists/' + id, {method:'PATCH', body: JSON.stringify({files: {[syncFile()]: {content: JSON.stringify(local)}}})});
     }
     S.syncLast = Date.now(); mergingNow = true; store.set('settings', S); mergingNow = false;
@@ -2203,7 +2201,7 @@ async function syncNow(manual){
 function fillSync(){
   $('#syncToken').value = S.syncToken || '';
   $('#syncName').value = S.syncName || '';
-  $('#syncKeys').checked = S.syncKeys !== false;
+  S.syncKeys = false;
   syncStatus(S.syncToken ? '✓ ' + (syncTimeText() || L('Connected', '已连接')) : L('Not connected.', '还没有连接。'));
 }
 $('#syncGo').addEventListener('click', () => {
@@ -2212,11 +2210,11 @@ $('#syncGo').addEventListener('click', () => {
   if(!tok){ syncStatus(L('Paste your GitHub token first.', '请先粘贴 GitHub 令牌。')); return; }
   if(!name){ syncStatus(L('Choose a sync name, e.g. "me" or "mom".', '请填一个同步名字，比如 "me" 或 "mom"。')); return; }
   if(tok !== S.syncToken) S.syncGistId = '';
-  S.syncToken = tok; S.syncName = name; S.syncKeys = $('#syncKeys').checked;
+  S.syncToken = tok; S.syncName = name; S.syncKeys = false;
   mergingNow = true; store.set('settings', S); mergingNow = false;
   syncNow(true);
 });
-$('#syncKeys').addEventListener('change', () => { S.syncKeys = $('#syncKeys').checked; store.set('settings', S); });
+
 $('#syncOff').addEventListener('click', () => {
   S.syncToken = ''; S.syncGistId = ''; S.syncLast = 0;
   mergingNow = true; store.set('settings', S); mergingNow = false;
