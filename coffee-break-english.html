@@ -812,17 +812,34 @@ function loadVoices(){
 }
 function speak(text, rate, onEnd){
   if(!('speechSynthesis' in window) || !text){ if(onEnd) onEnd(); return; }
+  const wasBusy = speechSynthesis.speaking || speechSynthesis.pending;
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  const v = currentVoice();
-  if(v){ u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
-  u.rate = rate || S.rate;
-  if(onEnd){
-    let called = false;
-    const once = () => { if(!called){ called = true; setTimeout(onEnd, 250); } };
-    u.onend = once; u.onerror = once;
-  }
-  speechSynthesis.speak(u);
+  let called = false;
+  const done = () => { if(onEnd && !called){ called = true; setTimeout(onEnd, 250); } };
+  const make = useVoice => {
+    const u = new SpeechSynthesisUtterance(text);
+    const v = useVoice ? currentVoice() : null;
+    if(v){ u.voice = v; u.lang = v.lang; } else u.lang = S.persona === 'british' ? 'en-GB' : 'en-US';
+    u.rate = rate || S.rate;
+    u.onend = done; u.onerror = done;
+    return u;
+  };
+  const go = () => {
+    let started = false;
+    const u = make(true);
+    u.onstart = () => { started = true; };
+    try{ speechSynthesis.resume(); }catch(e){}
+    speechSynthesis.speak(u);
+    // Some Android phones never start speaking (stuck engine or a broken voice): try once more with the phone's default voice.
+    setTimeout(() => {
+      if(started || speechSynthesis.speaking) return;
+      try{ speechSynthesis.cancel(); speechSynthesis.resume(); }catch(e){}
+      const u2 = make(false);
+      speechSynthesis.speak(u2);
+    }, 1500);
+  };
+  // Right after cancel(), Chrome on Android sometimes drops the next sentence, so wait a moment.
+  if(wasBusy) setTimeout(go, 120); else go();
 }
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -834,7 +851,7 @@ document.addEventListener('click', () => {
   try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
 }, {capture:true});
 let rec = null, recBtn = null;
-const APP_VERSION = '1.17';
+const APP_VERSION = '1.18';
 const IN_APP = /MicroMessenger|WeChat|FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent);
 const IOS_NOT_SAFARI = /iPhone|iPad|iPod/i.test(navigator.userAgent) && /CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
 function micHelp(){
@@ -931,7 +948,7 @@ async function aiMic(btn, ta, onDone, opts){
   const me = {btn, stop(){}, cancel(){}};
   aiRec = me;
   let stream;
-  try{ stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}}); }
+  try{ stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:true}})   /* echo cancellation can switch Android phones into quiet 'call mode' */; }
   catch(e){
     if(aiRec === me) aiRec = null; resetMicBtn(btn);
     showErr(/Android/i.test(navigator.userAgent)
@@ -1515,7 +1532,7 @@ $('#micTest').addEventListener('click', async () => {
   log(L('Built-in speech recognition: ', '自带语音识别：') + (SR ? L('available', '有') : L('not available', '没有')));
   try{ const pm = await navigator.permissions.query({name:'microphone'}); log(L('Microphone permission: ', '麦克风权限：') + pm.state); }catch(e){}
   let micOk = false;
-  try{ const st = await navigator.mediaDevices.getUserMedia({audio:true}); micOk = true; st.getTracks().forEach(t => t.stop()); log(L('Microphone: works ✓', '麦克风：正常 ✓')); }
+  try{ const st = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false}}); micOk = true; st.getTracks().forEach(t => t.stop()); log(L('Microphone: works ✓', '麦克风：正常 ✓')); }
   catch(e){ log(L('Microphone: blocked or missing ✗ (', '麦克风：被阻止或找不到 ✗（') + e.name + ')'); }
   let srOk = false;
   if(SR && micOk){
